@@ -1,0 +1,13 @@
+[theme]
+base = "light"
+primaryColor = "#1F4E79"
+font = "sans serif"
+
+[client]
+toolbarMode = "viewer"          # esconde o menu de desenvolvedor para o público
+
+[browser]
+gatherUsageStats = false
+
+[server]
+enableXsrfProtection = true

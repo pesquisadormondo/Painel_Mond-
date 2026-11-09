@@ -1,0 +1,12 @@
+# Testado com Python 3.12 e Streamlit 1.66
+streamlit[auth]>=1.66      # "auth" instala o Authlib, exigido pelo login Google nativo (st.login)
+pandas>=2.2
+plotly>=5.24
+openpyxl>=3.1              # leitura da planilha .xlsx
+
+# Somente para o backend "postgres" (Supabase) — próxima etapa:
+# sqlalchemy>=2.0
+# psycopg2-binary>=2.9
+
+# Somente para rodar os testes:
+# pytest>=8

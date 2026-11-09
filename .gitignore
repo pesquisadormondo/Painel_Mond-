@@ -1,0 +1,8 @@
+# NUNCA versionar dados pessoais, segredos ou logs de acesso
+data/*.xlsx
+data/*.csv
+logs/
+.streamlit/secrets.toml
+__pycache__/
+.pytest_cache/
+.venv/

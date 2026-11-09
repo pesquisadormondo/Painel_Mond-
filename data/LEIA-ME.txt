@@ -1,0 +1,3 @@
+Coloque aqui a planilha .xlsx (abas: Familias, Moradores, atividades, avaliação).
+Ela contém dados pessoais: NÃO envie para repositório público nem compartilhe por e-mail.
+Para atualizar os painéis, substitua o arquivo e use "Recarregar dados da fonte" (Administração > Qualidade dos dados).
