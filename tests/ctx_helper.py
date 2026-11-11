@@ -15,14 +15,16 @@ def _modelo(xlsx: str):
     return loader.construir_modelo(loader.ler_planilha(Path(xlsx)))
 
 
-def construir_ctx(nivel: str, xlsx: str, log: str, k: int = 5, segredo: str = "segredo-de-teste") -> Ctx:
+def construir_ctx(nivel: str, xlsx: str, log: str, k: int = 5, segredo: str = "segredo-de-teste",
+                  k_sensivel: int | None = None, k_download: int = 5, k_explorador: int = 5) -> Ctx:
     ref = date(2026, 11, 4)
     frames, quali = _modelo(xlsx)
     fr = frames if nivel == "admin" else para_pesquisa(frames, segredo, ref)
     mor = morador_enriquecido(fr, ref)
     fato_total = fato_participacao(fr, mor)
     fato, filtros = aplicar_filtros(fato_total)
-    settings = SimpleNamespace(k_min=k, pseudo_secret=segredo, log_path=Path(log), ref_date=ref, backend="xlsx")
+    settings = SimpleNamespace(k_min=k, k_sensivel=k if k_sensivel is None else k_sensivel, k_download=k_download, k_explorador=k_explorador,
+                               pseudo_secret=segredo, log_path=Path(log), ref_date=ref, backend="xlsx")
     return Ctx(nivel=nivel, k=k, ref=ref, settings=settings, email="teste@local", frames=fr, mor=mor,
                fato_total=fato_total, fato=fato, av=avaliacao_enriquecida(fr), qualidade=quali,
                carregado_em="agora", filtros=filtros)

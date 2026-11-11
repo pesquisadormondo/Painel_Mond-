@@ -8,6 +8,11 @@ Aplicativo Streamlit com painéis interativos dos indicadores do Instituto Mond�
 | 2. Pesquisador | Pesquisadores aprovados | Login Google + e-mail autorizado + aceite do termo | Painéis e **download de dados pseudonimizados** |
 | 3. Administrador | Equipe gestora | Login Google + e-mail de administrador | Tudo, inclusive cadastro, mapa das casas, qualidade e auditoria |
 
+**Tela “Dados: explorar e baixar”** (todos os níveis): escolha a tabela, aplique filtros (ano, dimensão, categoria, atividade, tipo, turma, sexo, faixa etária, comunidade, zona, período), defina como somar e baixe em CSV, CSV para Excel ou XLSX.
+- **Público:** só tabelas agregadas (até 3 colunas de agrupamento); contagens menores que `k_explorador` aparecem como “<k”.
+- **Pesquisador:** agregadas + microdados pseudonimizados (após aceitar o termo) + pacote .zip; os filtros demográficos usam os valores já generalizados pelo k-anonimato.
+- **Administrador:** tudo, inclusive tabelas identificadas (CPF e telefone mascarados por padrão, confirmação obrigatória, tudo registrado).
+
 Esta é a **fase 1**: o app lê a planilha `.xlsx` e aplica as regras no próprio Python. A fase 2 (documentação, seção 11)
 move os dados para o Supabase e as regras de privacidade para o banco.
 
@@ -42,9 +47,22 @@ Conta Google não listada vê apenas o painel público.
 |---|---|
 | Carga | Converte tipos, completa zeros de CPF, trata `#N/A`/`n/r`, une variantes de texto, remove linhas duplicadas e gera o relatório de qualidade |
 | Níveis 1 e 2 | Remove nomes, CPF, telefone, endereço, coordenadas e textos livres; ids viram códigos HMAC-SHA256; nascimento vira faixa etária |
-| Nível 1 | Células de 1 a *k*−1 pessoas são omitidas; se só uma célula for omitida, a menor restante também é (supressão complementar) |
+| Nível 1 | Células de 1 a *k*−1 pessoas são omitidas (configurável, veja abaixo); se só uma célula for omitida, a menor restante também é (supressão complementar) |
 | Download | k-anonimato (comunidade, faixa etária, sexo, zona) por supressão local, dicionário de dados e LEIA-ME no pacote |
 | Auditoria | Login, geração e download de pacotes, consultas ao cadastro e revelação de CPF/telefone vão para `logs/log_acesso.csv` (sem o texto das buscas) |
+
+### Ajustar o corte de privacidade (`[privacy]` no `secrets.toml`)
+
+| Chave | Efeito | Padrão |
+|---|---|---|
+| `k_min` | Painel público, páginas em geral. `1` = não omite nada | 5 |
+| `k_sensivel` | Painel público, páginas de **Saúde** e **Doações e cestas** | 5 |
+| `k_download` | k-anonimato dos arquivos baixados por pesquisadores | 5 |
+| `k_explorador` | Tabelas agregadas baixadas no nível **público** (tela Dados) | 5 |
+
+As três são independentes: relaxar `k_min` não relaxa saúde nem download. Cuidado ao baixar o corte no painel público:
+grupos pequenos podem permitir reconhecer pessoas, especialmente em saúde, entre crianças e adolescentes e em comunidades
+pequenas (LGPD, arts. 5º II e 14). A decisão final deve ser do Instituto e do encarregado de dados (pergunta N9).
 
 ## 4. Limitações que você precisa conhecer
 
@@ -63,11 +81,24 @@ Conta Google não listada vê apenas o painel público.
 - **LGPD:** o `TERMO_DE_USO.md` é um rascunho; base legal, consentimento de menores e encarregado precisam de validação
   jurídica antes de abrir os níveis 2 e 1 ao uso real.
 
-## 5. Atualizar os dados
+## 5. Banco no Supabase e ambiente de teste
+
+Veja **`DEPLOY_SUPABASE.md`**: mapa de onde vai cada arquivo, criação do projeto Supabase, carga dos dados **mascarados**
+(`python scripts/carregar_supabase.py --criar-esquema --mascarar`), execução do app contra o banco, publicação (GitHub +
+Streamlit Cloud) e roteiro de validação. Modelo de segredos: `.streamlit/secrets.teste.example.toml`.
+
+## 6. Colocar no ar com túnel (alternativa, dados locais)
+
+Veja o **`DEPLOY.md`**: passo a passo para compartilhar o painel com dados reais a partir do seu Mac (Cloudflare Tunnel, com
+lista de e-mails e senha da equipe) e para publicar uma demonstração com dados fictícios na nuvem
+(`python scripts/gerar_demo.py` gera `demo/dados_demo.xlsx`). O painel tem uma caixa **💬 Enviar feedback** na barra lateral;
+as mensagens ficam em `logs/feedback.csv` e aparecem em **Administração → Feedback da equipe**.
+
+## 7. Atualizar os dados
 
 Substitua o `.xlsx` em `data/` (o app detecta a mudança) ou use **Administração → Qualidade dos dados → Recarregar**.
 
-## 6. Mapa dos arquivos
+## 8. Mapa dos arquivos
 
 ```
 app.py                 entrada: acesso, filtros e navegação por nível
@@ -80,11 +111,21 @@ mondo/ui.py            contexto, filtros e gráficos reutilizáveis
 mondo/pages.py         as telas (painéis, download, administração)
 mondo/exportacao.py    pacote do pesquisador (CSVs + dicionário + LEIA-ME)
 mondo/audit.py         registro de auditoria
+mondo/feedback.py      caixa de feedback da equipe
+mondo/carga.py         carga do modelo no PostgreSQL/Supabase
+mondo/db.py            conexão com o banco (auditoria e feedback)
+mondo/mascaramento.py  troca identificações por dados fictícios (ambiente de teste)
+sql/01_schema.sql      tabelas, restrições e segurança (RLS) do Supabase
+scripts/carregar_supabase.py  envia a planilha ao Supabase
+DEPLOY_SUPABASE.md     guia: Supabase + GitHub + ambiente de teste
+scripts/gerar_demo.py  planilha fictícia de demonstração
+demo/dados_demo.xlsx   dados 100% fictícios
+DEPLOY.md              como colocar no ar
 tests/                 testes com planilha sintética (sem dados reais)
 TERMO_DE_USO.md        termo exibido antes do download (rascunho)
 ```
 
-## 7. Próximos passos
+## 9. Próximos passos
 
 1. Script SQL do PostgreSQL (schemas `raw`, `core`, `pesquisa`, `publico`, `acesso`), papéis e visões com supressão.
 2. Script de carga para o Supabase com o mesmo saneamento do `loader.py`.

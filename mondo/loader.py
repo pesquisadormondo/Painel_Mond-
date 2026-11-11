@@ -366,22 +366,80 @@ def construir_modelo(abas: dict[str, pd.DataFrame]):
 # ------------------------------------------------------------------ backends
 TABELAS_CORE = ["dimensao", "categoria_atividade", "comunidade", "item_doacao", "atividade", "oferta",
                 "participacao", "participante", "morador", "familia", "avaliacao"]
+# colunas que o banco devolve como float/objeto e precisam voltar ao tipo do modelo
+_INTEIROS = {
+    "oferta": ["id_projeto", "id_formador", "id_rubrica", "id_indicador"],
+    "familia": ["id_comunidade"],
+    "morador": ["id_familia", "ciclo", "ipm", "grupo"],
+    "participante": ["id_morador"],
+    "participacao": ["id_item_doacao", "id_comunidade"],
+    "atividade": ["id_dimensao", "id_categoria"],
+    "avaliacao": ["id_oferta", "id_participante", "id_dimensao", "q01_aprendizado", "q02_organizacao",
+                  "q03_professores", "q04_recomendacao", "q05_infraestrutura", "q06_duracao",
+                  "q07_informacoes_previas", "q08_material"],
+}
+_DATAS = {"oferta": ["data_inicio", "data_fim"], "morador": ["data_nascimento"], "avaliacao": ["data_formacao"]}
+_NUMEROS = {"familia": ["latitude", "longitude"], "avaliacao": ["nota_geral"]}
+_BOOLEANOS = {"avaliacao": ["turno_manha", "turno_tarde", "turno_noite", "turno_fim_semana", "int_trabalhar_area",
+                            "int_primeiro_emprego", "int_mudar_area", "int_crescer_carreira", "int_abrir_negocio",
+                            "int_renda_extra", "int_interesse_pessoal", "int_feiras_eventos", "int_indeciso",
+                            "int_outro"]}
+
+
+def _tipar(tabela: str, df: pd.DataFrame) -> pd.DataFrame:
+    for c in _INTEIROS.get(tabela, []):
+        df[c] = pd.to_numeric(df[c], errors="coerce").astype("Int64")
+    for c in _DATAS.get(tabela, []):
+        df[c] = pd.to_datetime(df[c], errors="coerce")
+    for c in _NUMEROS.get(tabela, []):
+        df[c] = pd.to_numeric(df[c], errors="coerce").astype("float64")
+    for c in _BOOLEANOS.get(tabela, []):
+        df[c] = df[c].astype("boolean")
+    return df
 
 
 def carregar_postgres(url: str):
-    """EXPERIMENTAL: lê o schema `core` do Supabase/PostgreSQL (nomes de tabelas da documentação v0.2)."""
-    from sqlalchemy import create_engine  # import tardio: só necessário neste backend
-    eng = create_engine(url)
-    frames = {t: pd.read_sql_table(t, eng, schema="core") for t in TABELAS_CORE}
-    return frames, pd.DataFrame(columns=["id", "problema", "ocorrencias", "base", "percentual"])
+    """Lê o schema `core` do Supabase/PostgreSQL (criado por sql/01_schema.sql e preenchido por scripts/carregar_supabase.py).
+
+    Devolve (frames, qualidade, info). `info["mascarado"]` diz se as identificações são fictícias (ambiente de teste).
+    """
+    from sqlalchemy import create_engine, text
+    eng = create_engine(url, pool_pre_ping=True)
+    try:
+        with eng.connect() as conn:
+            frames = {t: _tipar(t, pd.read_sql(text(f"select * from core.{t}"), conn)) for t in TABELAS_CORE}
+            quali = pd.read_sql(text("select id, problema, ocorrencias, base, percentual from core.carga_qualidade "
+                                     "order by id"), conn)
+            quali["percentual"] = pd.to_numeric(quali["percentual"], errors="coerce").astype("float64")
+            quali["ocorrencias"] = quali["ocorrencias"].astype(int)
+            meta = pd.read_sql(text("select carregado_em, origem, mascarado from core.carga_info where id = 1"), conn)
+    finally:
+        eng.dispose()
+    if meta.empty:  # sem registro de carga: trata como dados REAIS (padrão seguro)
+        info = {"mascarado": False, "origem": "desconhecida", "carregado_em": None}
+    else:
+        info = {"mascarado": bool(meta.loc[0, "mascarado"]), "origem": meta.loc[0, "origem"],
+                "carregado_em": str(meta.loc[0, "carregado_em"])}
+    return frames, quali, info
 
 
 def carregar(settings):
+    """Devolve (frames, qualidade, info) conforme o backend configurado."""
     if settings.backend == "postgres":
         if not settings.postgres_url:
             raise ValueError("Defina data.postgres_url em .streamlit/secrets.toml.")
         return carregar_postgres(settings.postgres_url)
     if not settings.xlsx_path or not Path(settings.xlsx_path).exists():
-        raise FileNotFoundError("Planilha não encontrada. Coloque o arquivo .xlsx na pasta data/ "
-                                "ou defina data.xlsx_path em .streamlit/secrets.toml.")
-    return construir_modelo(ler_planilha(Path(settings.xlsx_path)))
+        from .config import ROOT
+        pasta = ROOT / "data"
+        achados = sorted(p.name for p in pasta.iterdir()) if pasta.exists() else []
+        raise FileNotFoundError(
+            "Planilha não encontrada. "
+            + (f"Caminho configurado: {settings.xlsx_path}. " if settings.xlsx_path else "")
+            + f"Pasta procurada: {pasta} (arquivos nela: {achados or 'nenhum'}). "
+            "Coloque um arquivo .xlsx nessa pasta ou defina data.xlsx_path em .streamlit/secrets.toml.")
+    caminho = Path(settings.xlsx_path)
+    frames, quali = construir_modelo(ler_planilha(caminho))
+    # a planilha de demonstração (pasta demo/) é 100% fictícia; qualquer outra é tratada como dados reais
+    return frames, quali, {"mascarado": caminho.resolve().parent.name == "demo", "origem": caminho.name,
+                           "carregado_em": None}

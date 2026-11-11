@@ -4,5 +4,7 @@ data/*.csv
 logs/
 .streamlit/secrets.toml
 __pycache__/
+._*
+.DS_Store
 .pytest_cache/
 .venv/
