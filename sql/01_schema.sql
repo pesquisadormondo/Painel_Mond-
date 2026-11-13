@@ -1,4 +1,3 @@
-cat << 'EOF' > ~/Downloads/mondo-app/sql/01_schema.sql
 -- ============================================================
 -- DB_Mondo — PostgreSQL / Supabase — modelo v0.3 (otimizado)
 -- Pode ser executado mais de uma vez (idempotente).
@@ -301,4 +300,3 @@ begin
         execute 'revoke usage on schema core, acesso from authenticated';
     end if;
 end $$;
-EOFß

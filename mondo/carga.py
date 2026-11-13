@@ -7,6 +7,8 @@ from pathlib import Path
 import pandas as pd
 from sqlalchemy import text
 
+from .loader import padronizar_frames
+
 ROOT = Path(__file__).resolve().parent.parent
 SQL_SCHEMA = ROOT / "sql" / "01_schema.sql"
 
@@ -39,6 +41,7 @@ def carregar(engine, frames: dict[str, pd.DataFrame], qualidade: pd.DataFrame, m
              reset: bool = False) -> dict[str, int]:
     """Substitui os dados de `core` pelos do modelo, em uma única transação. Devolve linhas por tabela."""
     resumo: dict[str, int] = {}
+    frames = padronizar_frames(frames)   # grava o banco já com a caixa dos textos padronizada
     with engine.begin() as conn:
         _limpar(conn, reset)
         for t in ORDEM:

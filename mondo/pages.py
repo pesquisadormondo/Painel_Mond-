@@ -537,18 +537,24 @@ def cadastro(c: Ctx) -> None:
 
 
 def acessos(c: Ctx) -> None:
+    from . import acessos as gestao, db
     from .auth import _admins, _pesquisadores
     cabecalho("Acessos e auditoria")
-    a, b = st.columns(2)
-    with a:
-        st.subheader("Administradores")
-        st.dataframe(pd.DataFrame({"e-mail": sorted(_admins())}), hide_index=True)
-    with b:
+    st.subheader("Administradores")
+    st.dataframe(pd.DataFrame({"e-mail": sorted(_admins())}), hide_index=True)
+    st.caption("Administradores vêm de .streamlit/secrets.toml (seção [access], chave admins).")
+    if db.usa_banco(c.settings):
+        gestao.painel_admin(c)
+        sec = _pesquisadores()
+        if sec:
+            st.caption("Também há e-mails na lista access.researchers do secrets.toml. Para quem tem registro no banco, "
+                       "vale o banco; os demais continuam valendo pela lista.")
+    else:
         st.subheader("Pesquisadores autorizados")
         pesq = _pesquisadores()
         st.dataframe(pd.DataFrame([{"e-mail": e, "validade": v or "sem prazo"} for e, v in sorted(pesq.items())]),
                      hide_index=True)
-    st.caption("As listas vêm de .streamlit/secrets.toml (seção [access]). Para alterar, edite o arquivo e reinicie o app.")
+        st.caption("Sem banco configurado, a lista vem de .streamlit/secrets.toml (access.researchers).")
     st.subheader("Registro de acessos")
     log = audit.ler(c.settings)
     if log.empty:

@@ -17,17 +17,26 @@ def morador_enriquecido(f: dict[str, pd.DataFrame], ref: date) -> pd.DataFrame:
     if "faixa_etaria" not in mor.columns:
         mor["idade"] = idade_em(mor["data_nascimento"], ref)
         mor["faixa_etaria"] = faixa_etaria(mor["idade"])
-    if "zona" not in mor.columns:
+    if "comunidade" not in mor.columns:      # dados completos: só há o id da comunidade
         com = f["comunidade"].rename(columns={"nome": "comunidade"})[["id_comunidade", "comunidade"]]
-        fam = f["familia"][["id_familia", "id_comunidade", "zona"]]
-        mor = mor.merge(fam, on="id_familia", how="left").merge(com, on="id_comunidade", how="left")
+        fam = f["familia"][["id_familia", "id_comunidade", "zona"]].rename(
+            columns={"id_comunidade": "id_com_fam", "zona": "zona_fam"})
+        mor = mor.merge(fam, on="id_familia", how="left")
+        # vale o território do próprio morador; se faltar (ex.: família não cadastrada), usa o da família
+        for col, fb in (("id_comunidade", "id_com_fam"), ("zona", "zona_fam")):
+            if col not in mor.columns:
+                mor[col] = pd.NA
+            mor[col] = mor[col].where(mor[col].notna(), mor[fb])
+        mor = mor.merge(com, on="id_comunidade", how="left").drop(columns=["id_com_fam", "zona_fam"])
     return mor
 
 
 def fato_participacao(f: dict[str, pd.DataFrame], mor: pd.DataFrame) -> pd.DataFrame:
     """Tabela plana: uma linha por participação, com atividade, dimensão, datas e perfil do participante."""
     p = f["participacao"]
-    o = f["oferta"][["id_oferta", "id_atividade", "turma", "data_inicio", "data_fim"]]
+    cols_o = ["id_oferta", "id_atividade", "turma", "data_inicio", "data_fim"]
+    o = f["oferta"][cols_o + [c for c in ("id_dimensao", "id_categoria") if c in f["oferta"].columns]].rename(
+        columns={"id_dimensao": "id_dimensao_o", "id_categoria": "id_categoria_o"})
     a = f["atividade"].rename(columns={"nome": "atividade"})[["id_atividade", "atividade", "id_dimensao", "id_categoria"]]
     d = f["dimensao"].rename(columns={"nome": "dimensao"})[["id_dimensao", "dimensao"]]
     c = f["categoria_atividade"].rename(columns={"nome": "categoria"})[["id_categoria", "categoria"]]
@@ -37,10 +46,14 @@ def fato_participacao(f: dict[str, pd.DataFrame], mor: pd.DataFrame) -> pd.DataF
     demo = mor[["id_morador", "sexo", "faixa_etaria", "comunidade", "zona", "ciclo", "ipm", "status", "grupo"]].rename(
         columns={"comunidade": "comunidade_residencia", "zona": "zona_residencia"})
 
-    out = (p.merge(o, on="id_oferta", how="left").merge(a, on="id_atividade", how="left")
-            .merge(d, on="id_dimensao", how="left").merge(c, on="id_categoria", how="left")
-            .merge(it, on="id_item_doacao", how="left").merge(com, on="id_comunidade", how="left")
-            .merge(part, on="id_participante", how="left").merge(demo, on="id_morador", how="left"))
+    out = p.merge(o, on="id_oferta", how="left").merge(a, on="id_atividade", how="left")
+    for col in ("id_dimensao", "id_categoria"):      # a classificação da oferta vale mais que a da atividade
+        if f"{col}_o" in out.columns:
+            out[col] = out[f"{col}_o"].where(out[f"{col}_o"].notna(), out[col])
+            out = out.drop(columns=[f"{col}_o"])
+    out = (out.merge(d, on="id_dimensao", how="left").merge(c, on="id_categoria", how="left")
+              .merge(it, on="id_item_doacao", how="left").merge(com, on="id_comunidade", how="left")
+              .merge(part, on="id_participante", how="left").merge(demo, on="id_morador", how="left"))
     out["ano"] = out["data_inicio"].dt.year
     out["mes"] = out["data_inicio"].dt.to_period("M").dt.to_timestamp()
     for col in ["sexo", "faixa_etaria", "comunidade_residencia", "zona_residencia", "comunidade_atividade",

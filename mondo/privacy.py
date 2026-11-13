@@ -159,7 +159,14 @@ def para_pesquisa(f: dict[str, pd.DataFrame], segredo: str, ref: date) -> dict[s
     mor = f["morador"].copy()
     mor["faixa_etaria"] = faixa_etaria(idade_em(mor["data_nascimento"], ref))
     tam = mor.groupby("id_familia").size().clip(upper=8).rename("n_moradores_familia")
-    mor = (mor.merge(fam, on="id_familia", how="left")
+    fam = fam.rename(columns={"id_comunidade": "id_com_fam", "zona": "zona_fam"})
+    mor = mor.merge(fam, on="id_familia", how="left")
+    # vale o território do próprio morador; se faltar (ex.: família não cadastrada), usa o da família
+    for col, fb in (("id_comunidade", "id_com_fam"), ("zona", "zona_fam")):
+        if col not in mor.columns:
+            mor[col] = pd.NA
+        mor[col] = mor[col].where(mor[col].notna(), mor[fb])
+    mor = (mor.drop(columns=["id_com_fam", "zona_fam"])
               .merge(com, on="id_comunidade", how="left")
               .merge(tam, on="id_familia", how="left"))
     morador = pd.DataFrame({

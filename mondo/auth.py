@@ -97,19 +97,34 @@ def _vigente(validade: str, hoje: date) -> bool:
         return False  # validade ilegível = sem acesso (falha segura)
 
 
-def nivel_do_email(email: str, hoje: date | None = None) -> tuple[str, str | None]:
-    """Devolve (nível, aviso) para um e-mail já autenticado."""
+def nivel_do_email(email: str, hoje: date | None = None, settings=None) -> tuple[str, str | None]:
+    """Devolve (nível, aviso) para um e-mail já autenticado.
+
+    Administradores: só pela lista access.admins. Pesquisadores: se houver registro na tabela
+    acesso.acesso_pesquisador (banco), ele decide (assim uma revogação vale mesmo que o e-mail ainda esteja
+    na lista do secrets); sem registro, vale a lista access.researchers.
+    """
     hoje = hoje or date.today()
     email = email.strip().lower()
     if email in _admins():
         return LEVEL_ADMIN, None
+    if settings is not None:
+        from . import acessos, db
+        if db.usa_banco(settings):
+            try:
+                reg = acessos.buscar(settings, email)
+            except Exception:
+                reg = None  # banco indisponível: cai para a lista do secrets (falha segura = sem novos acessos)
+            if reg is not None:
+                ok, aviso = acessos.situacao(reg)
+                return (LEVEL_RESEARCHER, None) if ok else (LEVEL_PUBLIC, aviso)
     pesq = _pesquisadores()
     if email in pesq:
         if _vigente(pesq[email], hoje):
             return LEVEL_RESEARCHER, None
         return LEVEL_PUBLIC, "Sua autorização de pesquisador expirou. Solicite renovação ao administrador."
     return LEVEL_PUBLIC, ("Esta conta não tem autorização para as áreas restritas. "
-                          "Solicite acesso ao administrador do banco.")
+                          "Solicite acesso abaixo ou fale com o administrador do banco.")
 
 
 def _escolher_nivel_exibido(real: str) -> str:
@@ -156,9 +171,13 @@ def resolver_acesso(settings, mascarado: bool = False) -> Acesso:
         st.sidebar.button("Sair", on_click=st.logout, key="btn_logout")
         return Acesso(email, LEVEL_PUBLIC, LEVEL_PUBLIC, True, "E-mail não verificado.")
 
-    real, aviso = nivel_do_email(email)
+    real, aviso = nivel_do_email(email, settings=settings)
     st.sidebar.caption(f"Conectado: {email}")
     st.sidebar.button("Sair", on_click=st.logout, key="btn_logout")
     if aviso:
         st.sidebar.warning(aviso)
+    if real == LEVEL_PUBLIC:
+        from . import acessos, db
+        if db.usa_banco(settings):
+            acessos.formulario_solicitacao(settings, email)
     return Acesso(email, real, _escolher_nivel_exibido(real), True, aviso)

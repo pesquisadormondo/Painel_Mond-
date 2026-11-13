@@ -115,13 +115,6 @@ footer { visibility: hidden; }
 /* ---------- tela de login ---------- */
 .mondo-capa { max-width: 980px; margin: 0 auto 1.2rem; }
 .mondo-capa img { width: 100%; height: auto; display: block; }
-/* centraliza a animação na página, alinhada ao campo de senha */
-.st-key-capa_login, .st-key-capa_login [data-testid="stElementContainer"],
-.st-key-capa_login [data-testid="stImage"] {
-  width: 100% !important; display: flex !important; flex-direction: column; align-items: center !important;
-  justify-content: center !important;
-}
-.st-key-capa_login img { display: block; margin: 0 auto !important; max-width: 100%; height: auto; mix-blend-mode: multiply; }
 .mondo-login-titulo { text-align: center; margin: 0 0 .2rem; }
 .mondo-login-titulo h1 { font-size: 2.2rem; padding: 0; margin: 0; }
 .mondo-login-sub { text-align: center; color: var(--suave); margin: 0 0 1.2rem; font-size: 1.05rem; }
@@ -227,8 +220,10 @@ def _css_icones() -> str:
     return "<style>" + "\n".join(regras) + "</style>" if len(regras) > 1 else ""
 
 
-def aplicar() -> None:
-    """Injeta o CSS do tema. Pode ser chamada em toda execução (só adiciona um bloco de estilo)."""
+def aplicar(logo: bool = True) -> None:
+    """Injeta o CSS do tema. Pode ser chamada em toda execução (só adiciona um bloco de estilo).
+
+    `logo=False` não coloca o logotipo no topo do menu lateral (usado na tela de senha, que não tem menu)."""
     st.markdown(CSS, unsafe_allow_html=True)
     try:
         css_icones = _css_icones()
@@ -239,7 +234,7 @@ def aplicar() -> None:
             st.markdown(css_fb, unsafe_allow_html=True)
     except Exception:
         pass  # ícones são enfeite: nunca podem derrubar a página
-    if LOGO_MENU.exists():
+    if logo and LOGO_MENU.exists():
         try:
             st.logo(str(LOGO_MENU), size="large")   # fica no topo do menu lateral
         except Exception:
@@ -272,17 +267,27 @@ def _b64(caminho: str) -> str:
     return base64.b64encode(Path(caminho).read_bytes()).decode()
 
 
+def _imagem_na_coluna(caminho: str) -> None:
+    """Mostra a imagem ocupando toda a largura da coluna (assim ela fica centralizada junto com a coluna)."""
+    try:
+        st.image(caminho, width="stretch")
+    except Exception:            # versões mais antigas do Streamlit
+        st.image(caminho, use_container_width=True)
+
+
 def tela_login(titulo: str, subtitulo: str) -> None:
     """Topo da tela de senha: ilustração do Observatório, título e subtítulo centralizados, sem barra lateral."""
-    aplicar()
+    aplicar(logo=False)
     st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'], "
-                "[data-testid='stExpandSidebarButton'] { display: none; }</style>", unsafe_allow_html=True)
+                "[data-testid='stExpandSidebarButton'], [data-testid='stLogo'], [data-testid='stSidebarLogo'], "
+                "[data-testid='stHeaderLogo'] { display: none !important; } "
+                "[data-testid='stImage'] img { mix-blend-mode: multiply; }</style>", unsafe_allow_html=True)
     capa = CAPA_GIF if CAPA_GIF.exists() else CAPA_LOGIN
     if capa.exists():
         # o fundo branco da animação se funde ao papel da página (mix-blend-mode: multiply, definido no CSS)
         _, meio, _ = st.columns([1, 6, 1])
-        with meio.container(key="capa_login"):
-            st.image(str(capa))
+        with meio:
+            _imagem_na_coluna(str(capa))
     st.markdown(f'<div class="mondo-login-titulo"><h1>{html.escape(titulo)}</h1></div>'
                 f'<p class="mondo-login-sub">{html.escape(subtitulo)}</p>', unsafe_allow_html=True)
 
