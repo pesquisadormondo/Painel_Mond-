@@ -55,14 +55,15 @@ def portao_senha(settings) -> None:
     if not senha or st.session_state.get("senha_ok"):
         return
     from . import audit, tema
-    tema.cabecalho("Instituto Mondó — painéis", "Acesso restrito à equipe do projeto.")
+    tema.tela_login("Instituto Mondó — painéis", "Acesso restrito à equipe do projeto.")
+    _, centro, _ = st.columns([1, 1.3, 1])
     falhas = _falhas_de_senha()
     agora = time.time()
     falhas[:] = [t for t in falhas if agora - t < JANELA_S]
     if len(falhas) >= LIMITE_FALHAS:
-        st.error("Muitas tentativas incorretas. Aguarde alguns minutos e tente de novo.")
+        centro.error("Muitas tentativas incorretas. Aguarde alguns minutos e tente de novo.")
         st.stop()
-    digitada = st.text_input("Senha da equipe", type="password", key="senha_equipe")
+    digitada = centro.text_input("Senha da equipe", type="password", key="senha_equipe")
     if digitada:
         if hmac.compare_digest(digitada.encode("utf-8"), str(senha).encode("utf-8")):
             st.session_state["senha_ok"] = True
@@ -72,7 +73,7 @@ def portao_senha(settings) -> None:
         st.session_state["senha_erros"] = tentativas
         audit.registrar(settings, None, LEVEL_PUBLIC, "senha_incorreta", f"tentativa {tentativas}")
         time.sleep(min(2 * tentativas, 10))  # atrasa tentativas repetidas
-        st.error("Senha incorreta.")
+        centro.error("Senha incorreta.")
     st.stop()
 
 

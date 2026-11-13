@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import base64
 import html
+from pathlib import Path
 from contextlib import contextmanager
 
 import streamlit as st
@@ -23,6 +24,7 @@ from .config import ROOT
 
 KICKER = "Instituto Mondó em dados"   # linha pequena acima do título, como "O MARAJÓ EM DADOS" no BI
 LOGO_MENU = ROOT / "assets" / "logo_instituto_claro.png"   # logotipo claro, transparente, para a barra marrom
+CAPA_LOGIN = ROOT / "assets" / "capa_login.jpg"
 LOGOS = [ROOT / "assets" / "logo_observatorio.png", ROOT / "assets" / "logo_observatorio.svg"]
 
 COR = {
@@ -108,6 +110,13 @@ footer { visibility: hidden; }
 [data-testid="stSidebarHeader"] { padding-top: 1.4rem; padding-bottom: .6rem; }
 [data-testid="stLogo"], [data-testid="stSidebarLogo"] { height: 3.6rem; max-width: 100%; }
 
+/* ---------- tela de login ---------- */
+.mondo-capa { max-width: 980px; margin: 0 auto 1.2rem; }
+.mondo-capa img { width: 100%; height: auto; display: block; mix-blend-mode: multiply; }
+.mondo-login-titulo { text-align: center; margin: 0 0 .2rem; }
+.mondo-login-titulo h1 { font-size: 2.2rem; padding: 0; margin: 0; }
+.mondo-login-sub { text-align: center; color: var(--suave); margin: 0 0 1.2rem; font-size: 1.05rem; }
+
 /* ---------- cartões: gráficos e blocos com borda ---------- */
 [data-testid="stVerticalBlockBorderWrapper"] {
   background: #FFFFFF; border: 1px solid var(--borda); border-radius: 16px;
@@ -176,6 +185,24 @@ def cabecalho(titulo: str, subtitulo: str | None = None) -> None:
     st.title(titulo)
     if subtitulo:
         st.caption(subtitulo)
+
+
+@st.cache_data(show_spinner=False)
+def _b64(caminho: str) -> str:
+    return base64.b64encode(Path(caminho).read_bytes()).decode()
+
+
+def tela_login(titulo: str, subtitulo: str) -> None:
+    """Topo da tela de senha: ilustração do Observatório, título e subtítulo centralizados, sem barra lateral."""
+    aplicar()
+    st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'], "
+                "[data-testid='stExpandSidebarButton'] { display: none; }</style>", unsafe_allow_html=True)
+    if CAPA_LOGIN.exists():
+        # "multiply" funde o fundo de papel da imagem com o fundo da página, sem bordas visíveis
+        st.markdown(f'<div class="mondo-capa"><img alt="Observatório Mondó" '
+                    f'src="data:image/jpeg;base64,{_b64(str(CAPA_LOGIN))}"></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="mondo-login-titulo"><h1>{html.escape(titulo)}</h1></div>'
+                f'<p class="mondo-login-sub">{html.escape(subtitulo)}</p>', unsafe_allow_html=True)
 
 
 @contextmanager
