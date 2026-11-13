@@ -174,7 +174,8 @@ def _css_icones() -> str:
         if not mime or arq.name.startswith("."):
             continue
         pagina = arq.stem
-        alvos = [f'[href$="/{pagina}"]']
+        # "contém /nome" (sem diferenciar maiúsculas) aceita /feedback, /feedback_admin, /Feedback_da_equipe...
+        alvos = [f'[href*="/{pagina}" i]']
         if pagina == "visao_geral":
             alvos.append('[href$="/"]')   # a página inicial tem o endereço "/"
         for alvo in alvos:
@@ -190,9 +191,12 @@ def _css_icones() -> str:
 def aplicar() -> None:
     """Injeta o CSS do tema. Pode ser chamada em toda execução (só adiciona um bloco de estilo)."""
     st.markdown(CSS, unsafe_allow_html=True)
-    css_icones = _css_icones()
-    if css_icones:
-        st.markdown(css_icones, unsafe_allow_html=True)
+    try:
+        css_icones = _css_icones()
+        if css_icones:
+            st.markdown(css_icones, unsafe_allow_html=True)
+    except Exception:
+        pass  # ícones são enfeite: nunca podem derrubar a página
     if LOGO_MENU.exists():
         try:
             st.logo(str(LOGO_MENU), size="large")   # fica no topo do menu lateral
@@ -233,8 +237,8 @@ def tela_login(titulo: str, subtitulo: str) -> None:
                 "[data-testid='stExpandSidebarButton'] { display: none; }</style>", unsafe_allow_html=True)
     if CAPA_LOGIN.exists():
         # a ilustração tem fundo transparente, então se mistura ao papel da página
-        st.markdown(f'<div class="mondo-capa"><img alt="Observatório Mondó" '
-                    f'src="data:image/webp;base64,{_b64(str(CAPA_LOGIN))}"></div>', unsafe_allow_html=True)
+        _, meio, _ = st.columns([1, 6, 1])
+        meio.image(str(CAPA_LOGIN))
     st.markdown(f'<div class="mondo-login-titulo"><h1>{html.escape(titulo)}</h1></div>'
                 f'<p class="mondo-login-sub">{html.escape(subtitulo)}</p>', unsafe_allow_html=True)
 
