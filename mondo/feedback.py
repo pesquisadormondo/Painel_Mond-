@@ -62,16 +62,17 @@ def ler(settings) -> pd.DataFrame:
 
 def caixa(settings, pagina: str, filtros=None) -> None:
     """Formulário na barra lateral. `pagina` é o título da tela em que a pessoa está."""
-    with st.sidebar.expander("💬 Enviar feedback"):
-        with st.form("form_feedback", clear_on_submit=True):
-            nome = st.text_input("Seu nome (opcional)")
-            tipo = st.selectbox("Tipo", TIPOS)
-            texto = st.text_area("O que você achou?", max_chars=1500,
-                                 help="Não escreva nomes de pessoas atendidas nem CPF.")
-            enviado = st.form_submit_button("Enviar")
-        if enviado:
-            if texto.strip():
-                registrar(settings, nome, tipo, pagina, texto, {k: v for k, v in (filtros or {}).items() if v})
-                st.success("Obrigado! Seu feedback foi registrado.")
-            else:
-                st.warning("Escreva uma mensagem antes de enviar.")
+    with st.sidebar.container(key="caixa_feedback"):
+        with st.expander("Enviar feedback"):
+            with st.form("form_feedback", clear_on_submit=True):
+                nome = st.text_input("Seu nome (opcional)")
+                tipo = st.selectbox("Tipo", TIPOS)
+                texto = st.text_area("O que você achou?", max_chars=1500,
+                                     help="Não escreva nomes de pessoas atendidas nem CPF.")
+                enviado = st.form_submit_button("Enviar")
+            if enviado:
+                if texto.strip():
+                    registrar(settings, nome, tipo, pagina, texto, {k: v for k, v in (filtros or {}).items() if v})
+                    st.success("Obrigado! Seu feedback foi registrado.")
+                else:
+                    st.warning("Escreva uma mensagem antes de enviar.")

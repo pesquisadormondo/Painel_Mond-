@@ -149,12 +149,43 @@ footer { visibility: hidden; }
 .stFormSubmitButton > button:hover { background: #D99C3C; color: var(--ebano); }
 .stButton > button, .stDownloadButton > button { border-radius: 10px; font-weight: 600; }
 [data-testid="stDataFrame"] { border: 1px solid var(--borda); border-radius: 12px; overflow: hidden; }
-[data-testid="stAlert"] { border-radius: 12px; }
+
+/* ---------- alertas na paleta do projeto ---------- */
+[data-testid="stAlert"] [data-baseweb="notification"] {
+  background-color: #FBECE9 !important; border: 1px solid #EBC9C4 !important; border-left: 5px solid var(--urucum) !important;
+  border-radius: 12px !important; color: #5E1F1B !important;
+}
+[data-testid="stAlert"] [data-baseweb="notification"] * { color: #5E1F1B; }
+[data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]) [data-baseweb="notification"] {
+  background-color: #FCF3DF !important; border-color: #F0DAA8 !important; border-left-color: var(--mostarda) !important;
+}
+[data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]) [data-baseweb="notification"] * { color: #5A4010; }
+[data-testid="stAlert"]:has([data-testid="stAlertContentSuccess"]) [data-baseweb="notification"] {
+  background-color: #F1F1E3 !important; border-color: #D8D6B0 !important; border-left-color: var(--oliva) !important;
+}
+[data-testid="stAlert"]:has([data-testid="stAlertContentSuccess"]) [data-baseweb="notification"] * { color: #44401F; }
+[data-testid="stAlert"]:has([data-testid="stAlertContentError"]) [data-baseweb="notification"] {
+  background-color: #F6D9D5 !important; border-color: #E3A9A2 !important; border-left-color: #8E2F2A !important;
+}
+[data-testid="stAlert"]:has([data-testid="stAlertContentError"]) [data-baseweb="notification"] * { color: #5A1612; }
 [data-testid="stMain"] [data-testid="stExpander"] details {
   background: #FFFFFF; border: 1px solid var(--borda); border-radius: 12px;
 }
 </style>
 """
+
+
+@st.cache_data(show_spinner=False)
+def _css_feedback() -> str:
+    """Ícone de assets/icones_menu/feedback.png (ou feedback_admin.png) no título do expander "Enviar feedback"."""
+    for nome in ("feedback", "feedback_admin"):
+        arq = ICONES_DIR / f"{nome}.png"
+        if arq.exists():
+            return ('<style>.st-key-caixa_feedback summary [data-testid="stMarkdownContainer"] p::before { '
+                    'content: ""; display: inline-block; width: 1.35rem; height: 1.35rem; margin-right: .55rem; '
+                    f'vertical-align: -0.3rem; background: url("data:image/png;base64,{_b64(str(arq))}") '
+                    'center / contain no-repeat; }</style>')
+    return ""
 
 
 @st.cache_data(show_spinner=False)
@@ -195,6 +226,9 @@ def aplicar() -> None:
         css_icones = _css_icones()
         if css_icones:
             st.markdown(css_icones, unsafe_allow_html=True)
+        css_fb = _css_feedback()
+        if css_fb:
+            st.markdown(css_fb, unsafe_allow_html=True)
     except Exception:
         pass  # ícones são enfeite: nunca podem derrubar a página
     if LOGO_MENU.exists():
@@ -259,13 +293,13 @@ def estilizar(fig, legenda_embaixo: bool = False) -> None:
         template="plotly_white", title=None,
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         font=dict(family=FONTE_CORPO, size=13, color=COR["texto"]),
-        margin=dict(l=8, r=8, t=12, b=8), legend_title_text="", separators=",.", bargap=0.25,
+        margin=dict(l=8, r=8, t=12, b=8), legend_title_text="", separators=",.", bargap=0.35,
         hoverlabel=dict(bgcolor="white", bordercolor=COR["borda"], font=dict(family=FONTE_CORPO, color=COR["texto"])),
     )
     if legenda_embaixo:
         fig.update_layout(legend=dict(orientation="h", yanchor="top", y=-0.18, x=0))
     fig.update_xaxes(gridcolor=COR["grade"], linecolor=COR["borda"], zeroline=False, title_text=None)
-    fig.update_yaxes(gridcolor=COR["grade"], linecolor=COR["borda"], zeroline=False)
+    fig.update_yaxes(gridcolor=COR["grade"], linecolor=COR["borda"], zeroline=False, title_text=None)
 
 
 GRAFICO_CONFIG = {"displayModeBar": False}  # sem a barra de ferramentas do Plotly, como no BI

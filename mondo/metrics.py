@@ -129,7 +129,7 @@ def catalogo(f, fato, mor, av, k: int, publico: bool) -> pd.DataFrame:
     kp = kpis(f, fato, mor)
     ativos = mor[mor["status"] == "Ativa"]
     menores = ativos["faixa_etaria"].isin(["0–5", "6–11", "12–17"]).sum()
-    saude = fato[fato["dimensao"] == "SAÚDE"]
+    saude = fato[fato["dimensao"].astype(str).str.upper() == "SAÚDE"]
     nota = pd.to_numeric(av["nota_geral"], errors="coerce").dropna()
     q4 = pd.to_numeric(av["q04_recomendacao"], errors="coerce").dropna()
     intencoes = proporcoes(av, INT_COLS)

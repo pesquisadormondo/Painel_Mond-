@@ -398,6 +398,70 @@ def _tipar(tabela: str, df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+# ------------------------------------------------------------------ padronização de maiúsculas/minúsculas
+# Regra: só mexe em textos escritos TODOS EM MAIÚSCULAS (ex.: "KIT DE HIGIENE BUCAL" -> "Kit de higiene bucal").
+# Textos que já têm minúsculas ficam como estão. Ajuste as duas listas abaixo conforme a sua realidade.
+SIGLAS = {"IPM", "EJA", "UBS", "CRAS", "CREAS", "SUS", "ONG", "APS", "CPF", "LGPD", "TEA", "TDAH", "PCD", "IBGE"}
+NOMES_PROPRIOS = {"marajó": "Marajó", "pará": "Pará", "breves": "Breves", "portel": "Portel", "afuá": "Afuá",
+                  "mondó": "Mondó", "amazônia": "Amazônia", "brasil": "Brasil"}
+PALAVRAS_PEQUENAS = {"de", "da", "do", "das", "dos", "e", "em", "na", "no", "nas", "nos", "a", "o", "para", "com"}
+
+
+def _so_maiusculas(t: str) -> bool:
+    letras = [c for c in t if c.isalpha()]
+    return len(letras) >= 3 and all(c.isupper() for c in letras)
+
+
+def padroniza_texto(t, lugar: bool = False, sempre: bool = False):
+    """Texto todo em maiúsculas vira 'Frase' (ou 'Nome Próprio', se `lugar`). Com `sempre`, também reescreve
+    textos que misturam maiúsculas e minúsculas no formato 'Frase' (siglas e nomes próprios da lista são mantidos)."""
+    if not isinstance(t, str) or not (sempre or _so_maiusculas(t)):
+        return t
+    palavras = re.split(r"(\s+)", t.lower())
+    saida, primeira = [], True
+    for w in palavras:
+        if not w.strip():
+            saida.append(w)
+            continue
+        pre, nu, suf = re.match(r"^(\W*)(.*?)(\W*)$", w, flags=re.S).groups()   # pontuação nas pontas fica de fora
+        if nu.upper() in SIGLAS:
+            nu = nu.upper()
+        elif nu in NOMES_PROPRIOS:
+            nu = NOMES_PROPRIOS[nu]
+        elif lugar and nu not in PALAVRAS_PEQUENAS:
+            nu = nu[:1].upper() + nu[1:]
+        if primeira and nu:
+            nu, primeira = nu[:1].upper() + nu[1:], False
+        saida.append(pre + nu + suf)
+    return "".join(saida)
+
+
+# tabela -> (colunas só se estiverem em maiúsculas, colunas de lugar, colunas SEMPRE em formato "Frase").
+# `turma` e códigos ficam de fora de propósito (ex.: "TURMA A"). Nomes de atividades ficam só no modo "se maiúsculas",
+# porque podem conter nomes próprios.
+PADRONIZAR = {
+    "dimensao": ([], [], ["nome"]), "categoria_atividade": ([], [], ["nome"]), "item_doacao": ([], [], ["nome"]),
+    "atividade": (["nome"], [], []), "comunidade": ([], ["nome"], []), "participacao": ([], [], ["tipo"]),
+    "familia": (["zona"], ["bairro"], []), "morador": (["sexo", "status"], [], []),
+    "avaliacao": (["evento", "formato", "categoria_elogios", "categoria_melhorias"], [], []),
+}
+
+
+def padronizar_frames(frames: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+    """Aplica `padroniza_texto` às colunas de texto listadas em PADRONIZAR (devolve cópias)."""
+    out = dict(frames)
+    for tabela, (so_caps, lugar, sempre) in PADRONIZAR.items():
+        if tabela not in out:
+            continue
+        df = out[tabela].copy()
+        for cols, kw in ((so_caps, {}), (lugar, {"lugar": True}), (sempre, {"sempre": True})):
+            for col in cols:
+                if col in df.columns:
+                    df[col] = df[col].map(lambda v, kw=kw: padroniza_texto(v, **kw)).astype(df[col].dtype)
+        out[tabela] = df
+    return out
+
+
 def carregar_postgres(url: str):
     """Lê o schema `core` do Supabase/PostgreSQL (criado por sql/01_schema.sql e preenchido por scripts/carregar_supabase.py).
 
@@ -424,7 +488,13 @@ def carregar_postgres(url: str):
 
 
 def carregar(settings):
-    """Devolve (frames, qualidade, info) conforme o backend configurado."""
+    """Devolve (frames, qualidade, info) conforme o backend configurado, com os textos padronizados."""
+    frames, quali, info = _carregar_bruto(settings)
+    return padronizar_frames(frames), quali, info
+
+
+def _carregar_bruto(settings):
+    """Lê os dados do backend configurado, sem padronizar a caixa (maiúsculas/minúsculas) dos textos."""
     if settings.backend == "postgres":
         if not settings.postgres_url:
             raise ValueError("Defina data.postgres_url em .streamlit/secrets.toml.")
