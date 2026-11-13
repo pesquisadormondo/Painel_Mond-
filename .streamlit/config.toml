@@ -1,7 +1,16 @@
 [theme]
 base = "light"
-primaryColor = "#1F4E79"
+primaryColor = "#B8433E"            # urucum: abas, campos, seleções
+backgroundColor = "#F4F1EC"         # papel
+secondaryBackgroundColor = "#EBE4DA"
+textColor = "#3A2622"
 font = "sans serif"
+
+[theme.sidebar]
+backgroundColor = "#583A37"         # barra marrom-cacau do BI
+secondaryBackgroundColor = "#6A4A46"
+textColor = "#F4EEE6"
+primaryColor = "#D0564F"
 
 [client]
 toolbarMode = "viewer"          # esconde o menu de desenvolvedor para o público

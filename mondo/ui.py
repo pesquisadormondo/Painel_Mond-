@@ -9,9 +9,10 @@ import plotly.express as px
 import streamlit as st
 
 from .config import LEVEL_ADMIN, LEVEL_PUBLIC, LEVEL_RESEARCHER
+from . import tema
 from .privacy import AGE_LABELS, suprimir, texto_celula
 
-PALETA = px.colors.qualitative.Safe
+PALETA = tema.PALETA
 ORDENS = {"faixa_etaria": AGE_LABELS}
 
 
@@ -97,53 +98,79 @@ def vazio(df: pd.DataFrame) -> bool:
     return False
 
 
+def _eixo_valor(fig, horizontal: bool, rotulo: str) -> None:
+    if rotulo:
+        (fig.update_xaxes if horizontal else fig.update_yaxes)(title_text=rotulo)
+
+
 def barras(c: Ctx, df: pd.DataFrame, x: str, y: str = "valor", cor: str | None = None, titulo: str = "",
-           horizontal: bool = False, empilhar: bool = False, rotulo_y: str = "", sensivel: bool = True) -> None:
-    """`sensivel=False` desliga a supressão (use em números que não contam pessoas: ofertas, médias, %)."""
+           horizontal: bool = False, empilhar: bool = False, rotulo_y: str = "", sensivel: bool = True,
+           fmt: str = ",.0f") -> None:
+    """`sensivel=False` desliga a supressão (use em números que não contam pessoas: ofertas, médias, %).
+
+    `fmt`: formato do número escrito na barra (d3-format; ex.: ",.2f" para médias). Gráficos de uma série usam
+    escala de marrom (mais escuro = maior valor), como no BI; com `cor`, usam a paleta de séries.
+    """
     if vazio(df):
         return
     d = c.proteger(df, y, complementar=cor is None) if sensivel else df.assign(suprimido=False)
-    c.aviso_supressao(d)
     plot = d.dropna(subset=[y])
     if plot.empty:
+        c.aviso_supressao(d)
         st.info("Todos os valores deste gráfico estão abaixo do mínimo de divulgação.")
         return
     if horizontal:
         plot = plot.sort_values(y)
-    fig = px.bar(plot, x=y if horizontal else x, y=x if horizontal else y, color=cor, title=titulo,
-                 orientation="h" if horizontal else "v", barmode="stack" if empilhar else "group",
-                 category_orders={k: v for k, v in ORDENS.items() if k in (x, cor)},
-                 color_discrete_sequence=PALETA, labels={y: rotulo_y or y})
-    fig.update_layout(margin=dict(l=10, r=10, t=50, b=10), legend_title_text="", template="plotly_white")
-    st.plotly_chart(fig)
+    comum = dict(x=y if horizontal else x, y=x if horizontal else y, orientation="h" if horizontal else "v",
+                 category_orders={k: v for k, v in ORDENS.items() if k in (x, cor)}, labels={y: rotulo_y or y})
+    if cor:
+        fig = px.bar(plot, color=cor, barmode="stack" if empilhar else "group",
+                     color_discrete_sequence=PALETA, **comum)
+    else:
+        fig = px.bar(plot, color=y, color_continuous_scale=tema.ESCALA_MARROM,
+                     range_color=[0, float(plot[y].max()) or 1.0], **comum)
+        fig.update_coloraxes(showscale=False)
+        fig.update_traces(texttemplate="%{x:" + fmt + "}" if horizontal else "%{y:" + fmt + "}",
+                          textposition="outside", cliponaxis=False)
+    tema.estilizar(fig, legenda_embaixo=bool(cor))
+    _eixo_valor(fig, horizontal, rotulo_y)
+    with tema.cartao(titulo):
+        c.aviso_supressao(d)
+        st.plotly_chart(fig, config=tema.GRAFICO_CONFIG)
 
 
 def rosca(c: Ctx, df: pd.DataFrame, nomes: str, valor: str = "valor", titulo: str = "") -> None:
     if vazio(df):
         return
     d = c.proteger(df, valor)
-    c.aviso_supressao(d)
     plot = d.dropna(subset=[valor])
     if plot.empty:
+        c.aviso_supressao(d)
         st.info("Todos os valores deste gráfico estão abaixo do mínimo de divulgação.")
         return
-    fig = px.pie(plot, names=nomes, values=valor, hole=0.45, title=titulo, color_discrete_sequence=PALETA)
-    fig.update_layout(margin=dict(l=10, r=10, t=50, b=10), legend_title_text="")
-    st.plotly_chart(fig)
+    fig = px.pie(plot, names=nomes, values=valor, hole=0.55, color_discrete_sequence=PALETA)
+    fig.update_traces(marker=dict(line=dict(color="#FFFFFF", width=2)), textinfo="percent")
+    tema.estilizar(fig)
+    with tema.cartao(titulo):
+        c.aviso_supressao(d)
+        st.plotly_chart(fig, config=tema.GRAFICO_CONFIG)
 
 
 def linhas_tempo(c: Ctx, df: pd.DataFrame, x: str, y: str = "valor", cor: str | None = None, titulo: str = "") -> None:
     if vazio(df):
         return
     d = c.proteger(df, y, complementar=False)
-    c.aviso_supressao(d)
     plot = d.dropna(subset=[y])
     if plot.empty:
+        c.aviso_supressao(d)
         st.info("Todos os valores deste gráfico estão abaixo do mínimo de divulgação.")
         return
-    fig = px.bar(plot, x=x, y=y, color=cor, title=titulo, color_discrete_sequence=PALETA, barmode="stack")
-    fig.update_layout(margin=dict(l=10, r=10, t=50, b=10), legend_title_text="", template="plotly_white")
-    st.plotly_chart(fig)
+    fig = px.bar(plot, x=x, y=y, color=cor, color_discrete_sequence=PALETA, barmode="stack")
+    tema.estilizar(fig, legenda_embaixo=bool(cor))
+    fig.update_layout(bargap=0.12)
+    with tema.cartao(titulo):
+        c.aviso_supressao(d)
+        st.plotly_chart(fig, config=tema.GRAFICO_CONFIG)
 
 
 def tabela(c: Ctx, df: pd.DataFrame, colunas_contagem: list[str] | None = None, **kwargs) -> None:

@@ -54,9 +54,8 @@ def portao_senha(settings) -> None:
     senha = getattr(settings, "team_password", None)
     if not senha or st.session_state.get("senha_ok"):
         return
-    from . import audit
-    st.title("Instituto Mondó — painéis")
-    st.caption("Acesso restrito à equipe do projeto.")
+    from . import audit, tema
+    tema.cabecalho("Instituto Mondó — painéis", "Acesso restrito à equipe do projeto.")
     falhas = _falhas_de_senha()
     agora = time.time()
     falhas[:] = [t for t in falhas if agora - t < JANELA_S]

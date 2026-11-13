@@ -13,6 +13,7 @@ from .exportacao import COLS_AVALIACOES, COLS_MORADORES, montar_pacote
 from .metrics import (INT_COLS, NAO_INFORMADO, TURNO_COLS, avaliacao_enriquecida, catalogo, contar, fato_participacao,
                       kpis, medias_questoes, morador_enriquecido, percentual, proporcoes)
 from .privacy import para_pesquisa
+from .tema import cabecalho
 from .ui import Ctx, barras, linhas_tempo, rosca, tabela, vazio
 
 
@@ -28,8 +29,7 @@ def _pct(v) -> str:
 
 # ================================================================== visão geral
 def visao_geral(c: Ctx) -> None:
-    st.title("Visão geral")
-    st.caption("Famílias e moradores mostram o cadastro completo; participações e ofertas respeitam os filtros da barra lateral.")
+    cabecalho("Visão geral", "Famílias e moradores mostram o cadastro completo; participações e ofertas respeitam os filtros da barra lateral.")
     if vazio(c.fato):
         return
     kp = kpis(c.frames, c.fato, c.mor)
@@ -51,7 +51,7 @@ def visao_geral(c: Ctx) -> None:
 
 # ================================================================== atividades
 def atividades(c: Ctx) -> None:
-    st.title("Atividades")
+    cabecalho("Atividades")
     if vazio(c.fato):
         return
     t1, t2, t3 = st.tabs(["Por dimensão e categoria", "Mais frequentadas", "Lista completa"])
@@ -75,7 +75,7 @@ def atividades(c: Ctx) -> None:
 
 # ================================================================== território
 def territorio(c: Ctx) -> None:
-    st.title("Território")
+    cabecalho("Território")
     ativos = _rotulo(_rotulo(c.mor[c.mor["status"] == "Ativa"], "comunidade"), "zona")
     mapa = c.admin and "latitude" in c.frames["familia"].columns
     abas = st.tabs(["Moradores por comunidade", "Participações por comunidade da atividade"]
@@ -101,7 +101,7 @@ def territorio(c: Ctx) -> None:
 
 # ================================================================== perfil
 def perfil(c: Ctx) -> None:
-    st.title("Perfil dos moradores")
+    cabecalho("Perfil dos moradores")
     ativos = c.mor[c.mor["status"] == "Ativa"]
     a, b = st.columns(2)
     with a:
@@ -129,7 +129,7 @@ def perfil(c: Ctx) -> None:
 
 # ================================================================== saúde
 def saude(c: Ctx) -> None:
-    st.title("Saúde")
+    cabecalho("Saúde")
     st.info("Dados de saúde são dados pessoais sensíveis (LGPD, art. 5º, II). Aqui aparecem apenas totais; "
             "nada identifica pessoas.")
     d = c.fato[c.fato["dimensao"].astype(str).str.upper() == "SAÚDE"]
@@ -154,7 +154,7 @@ def saude(c: Ctx) -> None:
 
 # ================================================================== doações e cestas
 def doacoes(c: Ctx) -> None:
-    st.title("Doações e cestas básicas")
+    cabecalho("Doações e cestas básicas")
     d = c.fato
     if vazio(d):
         return
@@ -171,7 +171,7 @@ def doacoes(c: Ctx) -> None:
 
 # ================================================================== avaliações
 def avaliacoes(c: Ctx) -> None:
-    st.title("Avaliações das formações")
+    cabecalho("Avaliações das formações")
     av = c.av
     dims = ["Todas"] + sorted(av["dimensao"].dropna().unique())
     sel = st.selectbox("Dimensão", dims)
@@ -191,7 +191,7 @@ def avaliacoes(c: Ctx) -> None:
     m = medias_questoes(av)
     if c.publico:
         m = m[m["respostas"] >= c.k]
-    barras(c, m, "questao", y="media", horizontal=True, titulo="Média por pergunta", sensivel=False)
+    barras(c, m, "questao", y="media", horizontal=True, titulo="Média por pergunta", sensivel=False, fmt=",.2f")
 
     ev = (av.assign(nota=nota).groupby("evento").agg(respostas=("id_avaliacao", "size"), nota_media=("nota", "mean"))
           .reset_index().sort_values("respostas", ascending=False))
@@ -207,16 +207,15 @@ def avaliacoes(c: Ctx) -> None:
         if c.publico:
             p = p[p["respondentes"] >= c.k]
         with col:
-            barras(c, p, "opcao", y="percentual", horizontal=True, titulo=titulo, sensivel=False, rotulo_y="% dos respondentes")
+            barras(c, p, "opcao", y="percentual", horizontal=True, titulo=titulo, sensivel=False, rotulo_y="% dos respondentes", fmt=",.1f")
     dist = contar(av.assign(nota=(nota * 2).round() / 2).dropna(subset=["nota"]), "nota")
     barras(c, dist, "nota", titulo="Distribuição da nota geral (arredondada a 0,5)")
 
 
 # ================================================================== indicadores
 def indicadores(c: Ctx) -> None:
-    st.title("Indicadores")
-    st.caption("Indicadores calculáveis com os dados atuais. Metas, pesos e indicadores formais entram quando "
-               "as demais fontes (projetos, rubricas) forem incluídas.")
+    cabecalho("Indicadores", "Indicadores calculáveis com os dados atuais. Metas, pesos e indicadores formais entram quando "
+                             "as demais fontes (projetos, rubricas) forem incluídas.")
     t = catalogo(c.frames, c.fato, c.mor, c.av, c.k, c.publico)
     if c.publico:
         t = t[t["Nível mínimo"] == "P"]
@@ -456,8 +455,7 @@ def _pacote(c: Ctx) -> None:
 
 
 def dados(c: Ctx) -> None:
-    st.title("Dados: explorar e baixar")
-    st.caption({
+    cabecalho("Dados: explorar e baixar", {
         "publico": "Tabelas agregadas (totais), sem dados individuais. Valores pequenos aparecem como “<k” para proteger as pessoas.",
         "pesquisador": "Tabelas agregadas e microdados pseudonimizados (sem nomes, CPF, telefone, endereço ou textos livres).",
         "admin": "Acesso completo. Downloads com identificação exigem confirmação e ficam registrados.",
@@ -489,8 +487,7 @@ def catalogo_ind(c: Ctx) -> pd.DataFrame:
 
 # ================================================================== administração
 def qualidade(c: Ctx) -> None:
-    st.title("Qualidade dos dados")
-    st.caption(f"Carga: {c.carregado_em}")
+    cabecalho("Qualidade dos dados", f"Carga: {c.carregado_em}")
     if c.qualidade.empty:
         st.info("O relatório de qualidade é gerado na carga da planilha.")
     else:
@@ -511,7 +508,7 @@ def qualidade(c: Ctx) -> None:
 
 
 def cadastro(c: Ctx) -> None:
-    st.title("Consulta ao cadastro")
+    cabecalho("Consulta ao cadastro")
     st.warning("Acesso restrito a administradores. Dados pessoais: cada consulta é registrada (sem o texto buscado).")
     termo = st.text_input("Buscar por nome, código do morador (ex.: 12.3) ou CPF")
     revelar = st.checkbox("Mostrar CPF e telefone completos")
@@ -541,7 +538,7 @@ def cadastro(c: Ctx) -> None:
 
 def acessos(c: Ctx) -> None:
     from .auth import _admins, _pesquisadores
-    st.title("Acessos e auditoria")
+    cabecalho("Acessos e auditoria")
     a, b = st.columns(2)
     with a:
         st.subheader("Administradores")
@@ -562,7 +559,7 @@ def acessos(c: Ctx) -> None:
 
 
 def feedback_admin(c: Ctx) -> None:
-    st.title("Feedback da equipe")
+    cabecalho("Feedback da equipe")
     fb = feedback.ler(c.settings)
     if fb.empty:
         st.info("Nenhum feedback recebido ainda.")
@@ -591,7 +588,7 @@ def _texto_cortes(c: Ctx) -> str:
 
 
 def sobre(c: Ctx) -> None:
-    st.title("Sobre estes dados")
+    cabecalho("Sobre estes dados")
     ini, fim = c.fato_total["data_inicio"].min(), c.fato_total["data_fim"].max()
     st.markdown(f"""
 **Fonte:** planilha de bases de dados do Instituto Mondó (famílias, moradores, atividades e avaliações).
