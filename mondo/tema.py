@@ -25,6 +25,7 @@ from .config import ROOT
 KICKER = "Instituto Mondó em dados"   # linha pequena acima do título, como "O MARAJÓ EM DADOS" no BI
 LOGO_MENU = ROOT / "assets" / "logo_instituto_claro.png"   # logotipo claro, transparente, para a barra marrom
 CAPA_LOGIN = ROOT / "assets" / "capa_login.webp"
+ICONES_DIR = ROOT / "assets" / "icones_menu"
 LOGOS = [ROOT / "assets" / "logo_observatorio.png", ROOT / "assets" / "logo_observatorio.svg"]
 
 COR = {
@@ -156,9 +157,42 @@ footer { visibility: hidden; }
 """
 
 
+@st.cache_data(show_spinner=False)
+def _css_icones() -> str:
+    """Troca o emoji de cada item do menu lateral pela imagem de assets/icones_menu/<endereço-da-página>.<ext>.
+
+    O nome do arquivo é o endereço (url_path) da página: atividades.png, saude.svg, doacoes.webp...
+    Aceita png, svg, webp e jpg. Páginas sem arquivo continuam com o ícone padrão do Streamlit.
+    """
+    regras = ['[data-testid="stSidebarNavLink"] { padding: .3rem .45rem; gap: 0; align-items: center; }']
+    if not ICONES_DIR.exists():
+        return ""
+    mimes = {".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp", ".jpg": "image/jpeg",
+             ".jpeg": "image/jpeg"}
+    for arq in sorted(ICONES_DIR.iterdir()):
+        mime = mimes.get(arq.suffix.lower())
+        if not mime or arq.name.startswith("."):
+            continue
+        pagina = arq.stem
+        alvos = [f'[href$="/{pagina}"]']
+        if pagina == "visao_geral":
+            alvos.append('[href$="/"]')   # a página inicial tem o endereço "/"
+        for alvo in alvos:
+            link = f'a[data-testid="stSidebarNavLink"]{alvo}'
+            regras.append(f'{link} [data-testid="stIconEmoji"], {link} [data-testid="stIconMaterial"] '
+                          f'{{ display: none; }}')
+            regras.append(f'{link}::before {{ content: ""; flex: 0 0 auto; width: 2.15rem; height: 2.15rem; '
+                          f'margin-right: .7rem; border-radius: 10px; '
+                          f'background: url("data:{mime};base64,{_b64(str(arq))}") center / contain no-repeat; }}')
+    return "<style>" + "\n".join(regras) + "</style>" if len(regras) > 1 else ""
+
+
 def aplicar() -> None:
     """Injeta o CSS do tema. Pode ser chamada em toda execução (só adiciona um bloco de estilo)."""
     st.markdown(CSS, unsafe_allow_html=True)
+    css_icones = _css_icones()
+    if css_icones:
+        st.markdown(css_icones, unsafe_allow_html=True)
     if LOGO_MENU.exists():
         try:
             st.logo(str(LOGO_MENU), size="large")   # fica no topo do menu lateral
