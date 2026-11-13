@@ -115,7 +115,13 @@ footer { visibility: hidden; }
 /* ---------- tela de login ---------- */
 .mondo-capa { max-width: 980px; margin: 0 auto 1.2rem; }
 .mondo-capa img { width: 100%; height: auto; display: block; }
-.st-key-capa_login img { mix-blend-mode: multiply; }
+/* centraliza a animação na página, alinhada ao campo de senha */
+.st-key-capa_login, .st-key-capa_login [data-testid="stElementContainer"],
+.st-key-capa_login [data-testid="stImage"] {
+  width: 100% !important; display: flex !important; flex-direction: column; align-items: center !important;
+  justify-content: center !important;
+}
+.st-key-capa_login img { display: block; margin: 0 auto !important; max-width: 100%; height: auto; mix-blend-mode: multiply; }
 .mondo-login-titulo { text-align: center; margin: 0 0 .2rem; }
 .mondo-login-titulo h1 { font-size: 2.2rem; padding: 0; margin: 0; }
 .mondo-login-sub { text-align: center; color: var(--suave); margin: 0 0 1.2rem; font-size: 1.05rem; }
