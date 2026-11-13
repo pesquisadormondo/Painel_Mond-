@@ -24,7 +24,7 @@ from .config import ROOT
 
 KICKER = "Instituto Mondó em dados"   # linha pequena acima do título, como "O MARAJÓ EM DADOS" no BI
 LOGO_MENU = ROOT / "assets" / "logo_instituto_claro.png"   # logotipo claro, transparente, para a barra marrom
-CAPA_LOGIN = ROOT / "assets" / "capa_login.jpg"
+CAPA_LOGIN = ROOT / "assets" / "capa_login.webp"
 LOGOS = [ROOT / "assets" / "logo_observatorio.png", ROOT / "assets" / "logo_observatorio.svg"]
 
 COR = {
@@ -112,7 +112,7 @@ footer { visibility: hidden; }
 
 /* ---------- tela de login ---------- */
 .mondo-capa { max-width: 980px; margin: 0 auto 1.2rem; }
-.mondo-capa img { width: 100%; height: auto; display: block; mix-blend-mode: multiply; }
+.mondo-capa img { width: 100%; height: auto; display: block; }
 .mondo-login-titulo { text-align: center; margin: 0 0 .2rem; }
 .mondo-login-titulo h1 { font-size: 2.2rem; padding: 0; margin: 0; }
 .mondo-login-sub { text-align: center; color: var(--suave); margin: 0 0 1.2rem; font-size: 1.05rem; }
@@ -198,9 +198,9 @@ def tela_login(titulo: str, subtitulo: str) -> None:
     st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'], "
                 "[data-testid='stExpandSidebarButton'] { display: none; }</style>", unsafe_allow_html=True)
     if CAPA_LOGIN.exists():
-        # "multiply" funde o fundo de papel da imagem com o fundo da página, sem bordas visíveis
+        # a ilustração tem fundo transparente, então se mistura ao papel da página
         st.markdown(f'<div class="mondo-capa"><img alt="Observatório Mondó" '
-                    f'src="data:image/jpeg;base64,{_b64(str(CAPA_LOGIN))}"></div>', unsafe_allow_html=True)
+                    f'src="data:image/webp;base64,{_b64(str(CAPA_LOGIN))}"></div>', unsafe_allow_html=True)
     st.markdown(f'<div class="mondo-login-titulo"><h1>{html.escape(titulo)}</h1></div>'
                 f'<p class="mondo-login-sub">{html.escape(subtitulo)}</p>', unsafe_allow_html=True)
 
