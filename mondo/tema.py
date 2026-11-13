@@ -24,7 +24,8 @@ from .config import ROOT
 
 KICKER = "Instituto Mondó em dados"   # linha pequena acima do título, como "O MARAJÓ EM DADOS" no BI
 LOGO_MENU = ROOT / "assets" / "logo_instituto_claro.png"   # logotipo claro, transparente, para a barra marrom
-CAPA_LOGIN = ROOT / "assets" / "capa_login.webp"
+CAPA_GIF = ROOT / "assets" / "capa_login.gif"     # animação que toca uma vez e para no último quadro
+CAPA_LOGIN = ROOT / "assets" / "capa_login.webp"  # imagem estática (usada se não houver o GIF)
 ICONES_DIR = ROOT / "assets" / "icones_menu"
 LOGOS = [ROOT / "assets" / "logo_observatorio.png", ROOT / "assets" / "logo_observatorio.svg"]
 
@@ -114,6 +115,7 @@ footer { visibility: hidden; }
 /* ---------- tela de login ---------- */
 .mondo-capa { max-width: 980px; margin: 0 auto 1.2rem; }
 .mondo-capa img { width: 100%; height: auto; display: block; }
+.st-key-capa_login img { mix-blend-mode: multiply; }
 .mondo-login-titulo { text-align: center; margin: 0 0 .2rem; }
 .mondo-login-titulo h1 { font-size: 2.2rem; padding: 0; margin: 0; }
 .mondo-login-sub { text-align: center; color: var(--suave); margin: 0 0 1.2rem; font-size: 1.05rem; }
@@ -269,10 +271,12 @@ def tela_login(titulo: str, subtitulo: str) -> None:
     aplicar()
     st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'], "
                 "[data-testid='stExpandSidebarButton'] { display: none; }</style>", unsafe_allow_html=True)
-    if CAPA_LOGIN.exists():
-        # a ilustração tem fundo transparente, então se mistura ao papel da página
+    capa = CAPA_GIF if CAPA_GIF.exists() else CAPA_LOGIN
+    if capa.exists():
+        # o fundo branco da animação se funde ao papel da página (mix-blend-mode: multiply, definido no CSS)
         _, meio, _ = st.columns([1, 6, 1])
-        meio.image(str(CAPA_LOGIN))
+        with meio.container(key="capa_login"):
+            st.image(str(capa))
     st.markdown(f'<div class="mondo-login-titulo"><h1>{html.escape(titulo)}</h1></div>'
                 f'<p class="mondo-login-sub">{html.escape(subtitulo)}</p>', unsafe_allow_html=True)
 
