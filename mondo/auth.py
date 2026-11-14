@@ -97,6 +97,15 @@ def _vigente(validade: str, hoje: date) -> bool:
         return False  # validade ilegível = sem acesso (falha segura)
 
 
+def _gestao():
+    """Módulo de pesquisadores no banco (mondo/acessos.py). None se o arquivo não estiver no projeto."""
+    try:
+        from . import acessos
+        return acessos
+    except ImportError:
+        return None
+
+
 def nivel_do_email(email: str, hoje: date | None = None, settings=None) -> tuple[str, str | None]:
     """Devolve (nível, aviso) para um e-mail já autenticado.
 
@@ -108,15 +117,16 @@ def nivel_do_email(email: str, hoje: date | None = None, settings=None) -> tuple
     email = email.strip().lower()
     if email in _admins():
         return LEVEL_ADMIN, None
-    if settings is not None:
-        from . import acessos, db
+    gestao = _gestao() if settings is not None else None
+    if gestao is not None:
+        from . import db
         if db.usa_banco(settings):
             try:
-                reg = acessos.buscar(settings, email)
+                reg = gestao.buscar(settings, email)
             except Exception:
                 reg = None  # banco indisponível: cai para a lista do secrets (falha segura = sem novos acessos)
             if reg is not None:
-                ok, aviso = acessos.situacao(reg)
+                ok, aviso = gestao.situacao(reg)
                 return (LEVEL_RESEARCHER, None) if ok else (LEVEL_PUBLIC, aviso)
     pesq = _pesquisadores()
     if email in pesq:
@@ -136,6 +146,36 @@ def _escolher_nivel_exibido(real: str) -> str:
                             help="Útil para conferir o que cada nível enxerga.")
 
 
+def _botao(rotulo: str, **kw) -> bool:
+    """Botão que ocupa a largura da coluna (o parâmetro mudou de nome entre versões do Streamlit)."""
+    try:
+        return st.button(rotulo, width="stretch", **kw)
+    except TypeError:
+        return st.button(rotulo, use_container_width=True, **kw)
+
+
+def tela_entrada(settings) -> None:
+    """Primeira tela para quem ainda não entrou: login Google ou painel público (visitante)."""
+    from . import audit, tema
+    tema.tela_login("Instituto Mondó — painéis", "Escolha como deseja acessar.")
+    _, centro, _ = st.columns([1, 1.3, 1])
+    with centro:
+        if secret("auth.client_id"):
+            if _botao("Entrar com Google", type="primary", key="entrada_google"):
+                try:
+                    st.login()
+                except Exception:
+                    st.error("Login Google não configurado. Veja a seção 'Login com Google' do README.")
+            st.caption("Para pesquisadores e administradores autorizados.")
+        else:
+            st.info("O login Google ainda não está configurado neste ambiente.")
+        if _botao("Continuar como visitante", key="entrada_visitante"):
+            st.session_state["entrada"] = "visitante"
+            audit.registrar(settings, None, LEVEL_PUBLIC, "entrada_visitante")
+            st.rerun()
+        st.caption("Visitantes veem apenas totais e gráficos agregados, com proteção de privacidade (LGPD).")
+
+
 def resolver_acesso(settings, mascarado: bool = False) -> Acesso:
     """`mascarado`: True quando os dados carregados têm identificações fictícias (ambiente de teste)."""
     if settings.dev_mode:
@@ -146,13 +186,8 @@ def resolver_acesso(settings, mascarado: bool = False) -> Acesso:
     usuario = st.user
     logado = bool(getattr(usuario, "is_logged_in", False))
     if not logado:
-        if secret("auth.client_id"):  # botão só aparece quando o login Google está configurado
-            if st.sidebar.button("Entrar com Google", key="btn_login", type="primary"):
-                try:
-                    st.login()
-                except Exception:
-                    st.sidebar.error("Login Google não configurado. Veja a seção 'Login com Google' do README.")
-            st.sidebar.caption("Sem login você vê apenas o painel público.")
+        if st.query_params.get("modo") == "visitante":      # link direto para o painel público: /?modo=visitante
+            st.session_state["entrada"] = "visitante"
         nivel_equipe = getattr(settings, "team_level", None)
         if (getattr(settings, "team_password", None) and st.session_state.get("senha_ok")
                 and nivel_equipe in LEVEL_ORDER and nivel_equipe != LEVEL_PUBLIC):
@@ -163,6 +198,16 @@ def resolver_acesso(settings, mascarado: bool = False) -> Acesso:
             else:
                 st.sidebar.caption("Acesso da equipe (senha compartilhada).")
                 return Acesso("equipe (senha)", nivel_equipe, _escolher_nivel_exibido(nivel_equipe), True)
+        if st.session_state.get("entrada") != "visitante":
+            tela_entrada(settings)
+            st.stop()
+        if secret("auth.client_id"):  # visitante: botão para trocar para o login Google
+            if st.sidebar.button("Entrar com Google", key="btn_login", type="primary"):
+                try:
+                    st.login()
+                except Exception:
+                    st.sidebar.error("Login Google não configurado. Veja a seção 'Login com Google' do README.")
+            st.sidebar.caption("Sem login você vê apenas o painel público.")
         return Acesso(None, LEVEL_PUBLIC, LEVEL_PUBLIC, False)
 
     email = str(usuario.get("email") or "").lower()
@@ -176,8 +221,8 @@ def resolver_acesso(settings, mascarado: bool = False) -> Acesso:
     st.sidebar.button("Sair", on_click=st.logout, key="btn_logout")
     if aviso:
         st.sidebar.warning(aviso)
-    if real == LEVEL_PUBLIC:
-        from . import acessos, db
+    if real == LEVEL_PUBLIC and _gestao() is not None:
+        from . import db
         if db.usa_banco(settings):
-            acessos.formulario_solicitacao(settings, email)
+            _gestao().formulario_solicitacao(settings, email)
     return Acesso(email, real, _escolher_nivel_exibido(real), True, aviso)

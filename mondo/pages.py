@@ -537,19 +537,23 @@ def cadastro(c: Ctx) -> None:
 
 
 def acessos(c: Ctx) -> None:
-    from . import acessos as gestao, db
-    from .auth import _admins, _pesquisadores
+    from . import db
+    from .auth import _admins, _gestao, _pesquisadores
+    gestao = _gestao()
     cabecalho("Acessos e auditoria")
     st.subheader("Administradores")
     st.dataframe(pd.DataFrame({"e-mail": sorted(_admins())}), hide_index=True)
     st.caption("Administradores vêm de .streamlit/secrets.toml (seção [access], chave admins).")
-    if db.usa_banco(c.settings):
+    if gestao is None and db.usa_banco(c.settings):
+        st.warning("O arquivo mondo/acessos.py não foi encontrado no projeto. Envie-o ao repositório para gerenciar "
+                   "pesquisadores por aqui.")
+    if gestao is not None and db.usa_banco(c.settings):
         gestao.painel_admin(c)
         sec = _pesquisadores()
         if sec:
             st.caption("Também há e-mails na lista access.researchers do secrets.toml. Para quem tem registro no banco, "
                        "vale o banco; os demais continuam valendo pela lista.")
-    else:
+    if gestao is None or not db.usa_banco(c.settings):
         st.subheader("Pesquisadores autorizados")
         pesq = _pesquisadores()
         st.dataframe(pd.DataFrame([{"e-mail": e, "validade": v or "sem prazo"} for e, v in sorted(pesq.items())]),
