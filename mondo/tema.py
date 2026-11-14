@@ -362,6 +362,7 @@ def tela_login(titulo: str, subtitulo: str) -> None:
             _imagem_na_coluna(str(capa))
     st.markdown(f'<div class="mondo-login-titulo"><h1>{html.escape(titulo)}</h1></div>'
                 f'<p class="mondo-login-sub">{html.escape(subtitulo)}</p>', unsafe_allow_html=True)
+    rodape()          # faixa vermelha fixa também nas telas de senha e de entrada
 
 
 @contextmanager
