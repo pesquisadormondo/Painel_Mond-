@@ -93,7 +93,7 @@ def aplicar_filtros(fato_total: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 # ------------------------------------------------------------------ gráficos e tabelas
 def vazio(df: pd.DataFrame) -> bool:
     if df is None or len(df) == 0:
-        st.info("Nenhum registro para os filtros selecionados.")
+        tema.vazio_amigavel("Nada encontrado para estes filtros", "Tente remover ou trocar algum filtro na barra lateral.")
         return True
     return False
 
@@ -117,7 +117,7 @@ def barras(c: Ctx, df: pd.DataFrame, x: str, y: str = "valor", cor: str | None =
     plot = d.dropna(subset=[y])
     if plot.empty:
         c.aviso_supressao(d)
-        st.info("Todos os valores deste gráfico estão abaixo do mínimo de divulgação.")
+        tema.vazio_amigavel("Valores pequenos demais para divulgar", f"Para proteger a privacidade, números abaixo de {c.k} não são mostrados neste gráfico.")
         return
     if horizontal:
         plot = plot.sort_values(y)
@@ -146,7 +146,7 @@ def rosca(c: Ctx, df: pd.DataFrame, nomes: str, valor: str = "valor", titulo: st
     plot = d.dropna(subset=[valor])
     if plot.empty:
         c.aviso_supressao(d)
-        st.info("Todos os valores deste gráfico estão abaixo do mínimo de divulgação.")
+        tema.vazio_amigavel("Valores pequenos demais para divulgar", f"Para proteger a privacidade, números abaixo de {c.k} não são mostrados neste gráfico.")
         return
     fig = px.pie(plot, names=nomes, values=valor, hole=0.55, color_discrete_sequence=PALETA)
     fig.update_traces(marker=dict(line=dict(color="#FFFFFF", width=2)), textinfo="percent")
@@ -163,7 +163,7 @@ def linhas_tempo(c: Ctx, df: pd.DataFrame, x: str, y: str = "valor", cor: str | 
     plot = d.dropna(subset=[y])
     if plot.empty:
         c.aviso_supressao(d)
-        st.info("Todos os valores deste gráfico estão abaixo do mínimo de divulgação.")
+        tema.vazio_amigavel("Valores pequenos demais para divulgar", f"Para proteger a privacidade, números abaixo de {c.k} não são mostrados neste gráfico.")
         return
     fig = px.bar(plot, x=x, y=y, color=cor, color_discrete_sequence=PALETA, barmode="stack")
     tema.estilizar(fig, legenda_embaixo=bool(cor))

@@ -173,7 +173,6 @@ def tela_entrada(settings) -> None:
             st.session_state["entrada"] = "visitante"
             audit.registrar(settings, None, LEVEL_PUBLIC, "entrada_visitante")
             st.rerun()
-        st.caption("Visitantes veem apenas totais e gráficos agregados, com proteção de privacidade (LGPD).")
 
 
 def resolver_acesso(settings, mascarado: bool = False) -> Acesso:

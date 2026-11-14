@@ -13,7 +13,7 @@ from .exportacao import COLS_AVALIACOES, COLS_MORADORES, montar_pacote
 from .metrics import (INT_COLS, NAO_INFORMADO, TURNO_COLS, avaliacao_enriquecida, catalogo, contar, fato_participacao,
                       kpis, medias_questoes, morador_enriquecido, percentual, proporcoes)
 from .privacy import para_pesquisa
-from .tema import cabecalho
+from .tema import RODAPE_EM_TODAS_AS_PAGINAS, cabecalho, capa_pagina, kpi, rodape, vazio_amigavel
 from .ui import Ctx, barras, linhas_tempo, rosca, tabela, vazio
 
 
@@ -34,15 +34,15 @@ def visao_geral(c: Ctx) -> None:
         return
     kp = kpis(c.frames, c.fato, c.mor)
     k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Famílias cadastradas", c.n(kp["familias"]))
-    k2.metric("Moradores ativos", c.n(kp["moradores_ativos"]))
-    k3.metric("Participantes únicos", c.n(kp["participantes"]))
-    k4.metric("Cobertura dos moradores ativos", _pct(kp["cobertura_pct"]),
-              help="Moradores ativos com ao menos uma participação no período filtrado.")
+    kpi("Famílias cadastradas", c.n(kp["familias"]), "casa", onde=k1)
+    kpi("Moradores ativos", c.n(kp["moradores_ativos"]), "pessoas", onde=k2)
+    kpi("Participantes únicos", c.n(kp["participantes"]), "pessoa", onde=k3)
+    kpi("Cobertura dos moradores ativos", _pct(kp["cobertura_pct"]), "alvo", onde=k4,
+        ajuda="Moradores ativos com ao menos uma participação no período filtrado.")
     k5, k6, k7, _ = st.columns(4)
-    k5.metric("Participações", c.n(kp["participacoes"]))
-    k6.metric("Ofertas realizadas", c.n(kp["ofertas"]))
-    k7.metric("Atividades diferentes", c.n(kp["atividades"]))
+    kpi("Participações", c.n(kp["participacoes"]), "prancheta", onde=k5)
+    kpi("Ofertas realizadas", c.n(kp["ofertas"]), "calendario", onde=k6)
+    kpi("Atividades diferentes", c.n(kp["atividades"]), "atividade", onde=k7)
 
     linhas_tempo(c, contar(c.fato, ["mes", "dimensao"]), "mes", cor="dimensao", titulo="Participações por mês e dimensão")
     barras(c, contar(c.fato, "dimensao", distinto="id_participante"), "dimensao", horizontal=True,
@@ -103,28 +103,31 @@ def territorio(c: Ctx) -> None:
 def perfil(c: Ctx) -> None:
     cabecalho("Perfil dos moradores")
     ativos = c.mor[c.mor["status"] == "Ativa"]
-    a, b = st.columns(2)
-    with a:
-        rosca(c, contar(_rotulo(ativos, "sexo"), "sexo"), "sexo", titulo="Moradores ativos por sexo")
-    with b:
-        barras(c, contar(_rotulo(ativos, "faixa_etaria"), "faixa_etaria"), "faixa_etaria",
-               titulo="Moradores ativos por faixa etária")
-    part = c.fato[c.fato["origem"] == "cadastro"].drop_duplicates("id_participante")
-    barras(c, contar(part, "faixa_etaria"), "faixa_etaria", titulo="Participantes do cadastro por faixa etária")
-    if c.restrito:
-        st.subheader("Perfil socioeconômico e situação")
-        st.caption("Os significados de ciclo, grupo e IPM estão em validação com o Instituto.")
-        x, y = st.columns(2)
-        with x:
-            barras(c, contar(c.mor.assign(ciclo=c.mor["ciclo"].astype("string").fillna(NAO_INFORMADO)), "ciclo"),
-                   "ciclo", titulo="Moradores por ciclo")
-        with y:
-            barras(c, contar(c.mor.assign(status=c.mor["status"].fillna(NAO_INFORMADO)), "status"), "status",
-                   titulo="Moradores por situação")
-        ipm = c.mor.assign(ipm=c.mor["ipm"].astype("string").fillna(NAO_INFORMADO))
-        barras(c, contar(ipm, "ipm"), "ipm", titulo="Moradores por valor de IPM")
-    else:
-        st.info("Ciclo, grupo e IPM ficam disponíveis para pesquisadores autorizados.")
+    abas = st.tabs(["Moradores ativos", "Quem participa", "Situação e IPM"])
+    with abas[0]:
+        a, b = st.columns(2)
+        with a:
+            rosca(c, contar(_rotulo(ativos, "sexo"), "sexo"), "sexo", titulo="Moradores ativos por sexo")
+        with b:
+            barras(c, contar(_rotulo(ativos, "faixa_etaria"), "faixa_etaria"), "faixa_etaria",
+                   titulo="Moradores ativos por faixa etária")
+    with abas[1]:
+        part = c.fato[c.fato["origem"] == "cadastro"].drop_duplicates("id_participante")
+        barras(c, contar(part, "faixa_etaria"), "faixa_etaria", titulo="Participantes do cadastro por faixa etária")
+    with abas[2]:
+        if c.restrito:
+            st.caption("Os significados de ciclo, grupo e IPM estão em validação com o Instituto.")
+            x, y = st.columns(2)
+            with x:
+                barras(c, contar(c.mor.assign(ciclo=c.mor["ciclo"].astype("string").fillna(NAO_INFORMADO)), "ciclo"),
+                       "ciclo", titulo="Moradores por ciclo")
+            with y:
+                barras(c, contar(c.mor.assign(status=c.mor["status"].fillna(NAO_INFORMADO)), "status"), "status",
+                       titulo="Moradores por situação")
+            ipm = c.mor.assign(ipm=c.mor["ipm"].astype("string").fillna(NAO_INFORMADO))
+            barras(c, contar(ipm, "ipm"), "ipm", titulo="Moradores por valor de IPM")
+        else:
+            st.info("Ciclo, grupo e IPM ficam disponíveis para pesquisadores autorizados.")
 
 
 # ================================================================== saúde
@@ -160,9 +163,9 @@ def doacoes(c: Ctx) -> None:
         return
     dd, cc = d[d["doacao"]], d[d["cesta_basica"]]
     k1, k2, k3 = st.columns(3)
-    k1.metric("Participações com doação", c.n(len(dd)))
-    k2.metric("Participações com cesta básica", c.n(len(cc)))
-    k3.metric("Pessoas que receberam doação ou cesta", c.n(d[d["doacao"] | d["cesta_basica"]]["id_participante"].nunique()))
+    kpi("Participações com doação", c.n(len(dd)), "presente", onde=k1)
+    kpi("Participações com cesta básica", c.n(len(cc)), "cesta", onde=k2)
+    kpi("Pessoas que receberam doação ou cesta", c.n(d[d["doacao"] | d["cesta_basica"]]["id_participante"].nunique()), "pessoas", onde=k3)
     itens = contar(dd.assign(item_doacao=dd["item_doacao"].replace(NAO_INFORMADO, "Doação sem item informado")), "item_doacao")
     barras(c, itens, "item_doacao", horizontal=True, titulo="Doações por item")
     cestas = contar(cc, "ano").assign(ano=lambda t: t["ano"].astype(int).astype(str))
@@ -182,11 +185,11 @@ def avaliacoes(c: Ctx) -> None:
     nota = pd.to_numeric(av["nota_geral"], errors="coerce")
     q4 = pd.to_numeric(av["q04_recomendacao"], errors="coerce").dropna()
     k1, k2, k3 = st.columns(3)
-    k1.metric("Respostas", c.n(len(av)))
-    k2.metric("Nota geral média", "—" if nota.dropna().empty or (c.publico and nota.notna().sum() < c.k)
-              else f"{nota.mean():.2f}".replace(".", ","))
-    k3.metric("Recomendariam (notas 4 e 5)", "—" if q4.empty or (c.publico and len(q4) < c.k)
-              else _pct(percentual(int((q4 >= 4).sum()), len(q4))))
+    kpi("Respostas", c.n(len(av)), "balao", onde=k1)
+    kpi("Nota geral média", "—" if nota.dropna().empty or (c.publico and nota.notna().sum() < c.k)
+        else f"{nota.mean():.2f}".replace(".", ","), "estrela", onde=k2)
+    kpi("Recomendariam (notas 4 e 5)", "—" if q4.empty or (c.publico and len(q4) < c.k)
+        else _pct(percentual(int((q4 >= 4).sum()), len(q4))), "joinha", onde=k3)
 
     m = medias_questoes(av)
     if c.publico:
@@ -337,32 +340,35 @@ def _catalogo_dados(c: Ctx) -> dict:
 def _tabela_agregada(c: Ctx, fonte: str) -> None:
     df = _fonte_agregada(c, fonte)
     filtros = dd.FILTROS[fonte] + (dd.FILTROS_RESTRITOS[fonte] if c.restrito else [])
-    st.subheader("2. Filtros")
-    df_f, sel = _filtros_na_tela(df, filtros, f"agr_{fonte}")
-    st.subheader("3. Como somar")
-    opcoes = dd.AGRUPAR[fonte]["base"] + (dd.AGRUPAR[fonte]["restrito"] if c.restrito else [])
-    limite = dd.LIMITE_AGRUPAR_PUBLICO if c.publico else None
-    por = st.multiselect("Agrupar por", opcoes, format_func=lambda x: dd.ROTULOS.get(x, x), max_selections=limite,
-                         key=f"dl_por_{fonte}", help="Sem nenhuma escolha, a tabela traz um único total."
-                         + (f" No nível público, até {limite} colunas." if limite else ""))
-    medidas_disp = dd.MEDIDAS[fonte]
-    medidas = st.multiselect("Medidas", list(medidas_disp), default=list(medidas_disp)[:2],
-                             format_func=lambda m: medidas_disp[m][0], key=f"dl_med_{fonte}")
-    if not medidas:
-        st.info("Escolha ao menos uma medida.")
-        return
-    if df_f.empty:
-        st.info("Nenhum registro para os filtros selecionados.")
-        return
-    tab = dd.agregar(df_f, fonte, por, medidas)
-    if c.publico:
-        tab = dd.suprimir_publico(tab, fonte, medidas, getattr(c.settings, "k_explorador", 5))
-    final = dd.finalizar(tab, fonte, por, medidas)
-    st.subheader("4. Resultado")
-    st.dataframe(final, hide_index=True)
-    st.caption(f"{len(final)} linha(s)." + (f" Valores menores que {getattr(c.settings, 'k_explorador', 5)} aparecem como "
-                                            f"“<{getattr(c.settings, 'k_explorador', 5)}”." if c.publico else ""))
-    _botao_baixar(c, final, f"{fonte}_agregada", sel)
+    aba_cfg, aba_res = st.tabs(["Filtros e agrupamento", "Resultado e download"])
+    with aba_cfg:
+        st.subheader("Filtros")
+        df_f, sel = _filtros_na_tela(df, filtros, f"agr_{fonte}")
+        st.subheader("Como somar")
+        opcoes = dd.AGRUPAR[fonte]["base"] + (dd.AGRUPAR[fonte]["restrito"] if c.restrito else [])
+        limite = dd.LIMITE_AGRUPAR_PUBLICO if c.publico else None
+        por = st.multiselect("Agrupar por", opcoes, format_func=lambda x: dd.ROTULOS.get(x, x), max_selections=limite,
+                             key=f"dl_por_{fonte}", help="Sem nenhuma escolha, a tabela traz um único total."
+                             + (f" No nível público, até {limite} colunas." if limite else ""))
+        medidas_disp = dd.MEDIDAS[fonte]
+        medidas = st.multiselect("Medidas", list(medidas_disp), default=list(medidas_disp)[:2],
+                                 format_func=lambda m: medidas_disp[m][0], key=f"dl_med_{fonte}")
+    with aba_res:
+        if not medidas:
+            st.info("Escolha ao menos uma medida na aba “Filtros e agrupamento”.")
+            return
+        if df_f.empty:
+            vazio_amigavel("Nada encontrado para estes filtros", "Ajuste os filtros na aba “Filtros e agrupamento”.")
+            return
+        tab = dd.agregar(df_f, fonte, por, medidas)
+        if c.publico:
+            tab = dd.suprimir_publico(tab, fonte, medidas, getattr(c.settings, "k_explorador", 5))
+        final = dd.finalizar(tab, fonte, por, medidas)
+        st.subheader("Resultado")
+        st.dataframe(final, hide_index=True)
+        st.caption(f"{len(final)} linha(s)." + (f" Valores menores que {getattr(c.settings, 'k_explorador', 5)} aparecem como "
+                                                f"“<{getattr(c.settings, 'k_explorador', 5)}”." if c.publico else ""))
+        _botao_baixar(c, final, f"{fonte}_agregada", sel)
 
 
 def _tabela_micro(c: Ctx, fonte: str) -> None:
@@ -379,11 +385,18 @@ def _tabela_micro(c: Ctx, fonte: str) -> None:
                                     "cesta_basica", "comunidade_atividade", "sexo", "faixa_etaria",
                                     "comunidade_residencia", "zona_residencia"],
                   "moradores": COLS_MORADORES, "avaliacoes": COLS_AVALIACOES}[fonte]
-    st.subheader("2. Filtros")
-    filtros = dd.FILTROS[fonte] + dd.FILTROS_RESTRITOS[fonte]
-    df_f, sel = _filtros_na_tela(df, filtros, f"micro_{fonte}")
+    aba_f, aba_r = st.tabs(["Filtros", "Resultado e download"])
+    with aba_f:
+        st.subheader("Filtros")
+        filtros = dd.FILTROS[fonte] + dd.FILTROS_RESTRITOS[fonte]
+        df_f, sel = _filtros_na_tela(df, filtros, f"micro_{fonte}")
     saida = df_f[cols_saida]
-    st.subheader("3. Resultado")
+    with aba_r:
+        _resultado_micro(c, fonte, saida, sel, rel)
+
+
+def _resultado_micro(c: Ctx, fonte: str, saida: pd.DataFrame, sel: dict, rel: dict) -> None:
+    st.subheader("Resultado")
     st.caption(f"{len(saida):,} linhas × {saida.shape[1]} colunas (prévia das 200 primeiras). Dados pseudonimizados: continuam "
                "sendo dados pessoais. k-anonimato (k = {k}) aplicado a comunidade, faixa etária, sexo e zona."
                .replace(",", ".").format(k=rel["k"]))
@@ -410,21 +423,24 @@ def _tabela_identificada(c: Ctx, fonte: str) -> None:
     else:
         base = _com_ano(c.av)
         filtros = dd.FILTROS["avaliacoes"]
-    st.subheader("2. Filtros")
-    df_f, sel = _filtros_na_tela(base, filtros, f"ident_{fonte}")
-    revelar = False
-    if {"cpf", "telefone"} & set(df_f.columns):
-        revelar = st.checkbox("Incluir CPF e telefone completos (senão saem mascarados)", key=f"ident_rev_{fonte}")
+    aba_f, aba_r = st.tabs(["Filtros", "Resultado e download"])
+    with aba_f:
+        st.subheader("Filtros")
+        df_f, sel = _filtros_na_tela(base, filtros, f"ident_{fonte}")
+        revelar = False
+        if {"cpf", "telefone"} & set(df_f.columns):
+            revelar = st.checkbox("Incluir CPF e telefone completos (senão saem mascarados)", key=f"ident_rev_{fonte}")
     saida = df_f if revelar else dd.mascarar(df_f)
-    st.subheader("3. Resultado")
-    st.caption(f"{len(saida):,} linhas × {saida.shape[1]} colunas (prévia das 200 primeiras).".replace(",", "."))
-    st.dataframe(saida.head(200), hide_index=True)
-    if not ciente:
-        st.info("Marque a confirmação acima para liberar o download.")
-        return
-    if revelar:
-        sel = {**sel, "cpf_telefone_completos": ["sim"]}
-    _botao_baixar(c, saida, f"{fonte}_identificado", sel)
+    with aba_r:
+        st.subheader("Resultado")
+        st.caption(f"{len(saida):,} linhas × {saida.shape[1]} colunas (prévia das 200 primeiras).".replace(",", "."))
+        st.dataframe(saida.head(200), hide_index=True)
+        if not ciente:
+            st.info("Marque a confirmação acima para liberar o download.")
+            return
+        if revelar:
+            sel = {**sel, "cpf_telefone_completos": ["sim"]}
+        _botao_baixar(c, saida, f"{fonte}_identificado", sel)
 
 
 def _pacote(c: Ctx) -> None:
@@ -461,7 +477,7 @@ def dados(c: Ctx) -> None:
         "admin": "Acesso completo. Downloads com identificação exigem confirmação e ficam registrados.",
     }[c.nivel])
     catalogo_dados = _catalogo_dados(c)
-    st.subheader("1. Escolha a tabela")
+    st.subheader("Escolha a tabela")
     nome = st.selectbox("Tabela", list(catalogo_dados), label_visibility="collapsed", key="dl_tabela")
     tipo, fonte = catalogo_dados[nome]
     if tipo == "agregada":
@@ -575,8 +591,8 @@ def feedback_admin(c: Ctx) -> None:
         st.info("Nenhum feedback recebido ainda.")
         return
     a, b = st.columns(2)
-    a.metric("Mensagens", len(fb))
-    b.metric("Erros ou números estranhos", int((fb["tipo"] == "Erro ou número estranho").sum()))
+    kpi("Mensagens", len(fb), "balao", onde=a)
+    kpi("Erros ou números estranhos", int((fb["tipo"] == "Erro ou número estranho").sum()), "alerta", onde=b)
     st.dataframe(fb, hide_index=True)
     st.download_button("Baixar feedback (.csv)", fb.to_csv(index=False), file_name="feedback.csv", mime="text/csv")
 
@@ -599,6 +615,7 @@ def _texto_cortes(c: Ctx) -> str:
 
 def sobre(c: Ctx) -> None:
     cabecalho("Sobre estes dados")
+    capa_pagina()
     ini, fim = c.fato_total["data_inicio"].min(), c.fato_total["data_fim"].max()
     st.markdown(f"""
 **Fonte:** planilha de bases de dados do Instituto Mondó (famílias, moradores, atividades e avaliações).
@@ -617,3 +634,23 @@ não mostra cruzamentos que possam identificar pessoas.
 carga (veja “Qualidade dos dados”, para administradores). Os significados de *ciclo*, *grupo* e *IPM* estão em validação.
 """)
     st.caption("Este painel não substitui relatórios oficiais. Dúvidas: fale com a equipe do Instituto.")
+
+
+# ================================================================== rodapé (quais páginas: ver RODAPE_EM_TODAS_AS_PAGINAS em tema.py)
+import functools
+
+
+def _com_rodape(fn):
+    @functools.wraps(fn)                  # mantém o nome da função (o Streamlit usa o nome como endereço da página)
+    def interno(*args, **kwargs):
+        resultado = fn(*args, **kwargs)
+        rodape()
+        return resultado
+    return interno
+
+
+_TODAS = ("visao_geral", "atividades", "territorio", "perfil", "saude", "doacoes", "avaliacoes", "indicadores",
+          "dados", "qualidade", "cadastro", "acessos", "feedback_admin", "sobre")
+for _nome in (_TODAS if RODAPE_EM_TODAS_AS_PAGINAS else ("sobre",)):
+    if _nome in globals():
+        globals()[_nome] = _com_rodape(globals()[_nome])
