@@ -1,15 +1,4 @@
 """Identidade visual do painel, alinhada ao BI "O Marajó em Dados" (Observatório Mondó).
-
-Elementos do BI reproduzidos aqui:
-- fundo de papel claro, com textura leve;
-- barra de navegação marrom-cacau com a página ativa em mostarda (aqui, a barra lateral);
-- cartões brancos de cantos arredondados, com uma barrinha vermelha antes do título;
-- indicadores (st.metric) em cartões, número grande em marrom-escuro;
-- gráficos em tons de marrom (barras de uma série: mais escuro = maior valor) e paleta terrosa para séries.
-
-Uso: `cabecalho("Título", "subtítulo")` no começo de cada página (já chama `aplicar()`), e
-`cartao("Título do gráfico")` para envolver gráficos. As cores do tema do Streamlit ficam em .streamlit/config.toml.
-Para o logotipo, salve o arquivo em assets/logo_observatorio.png (ou .svg) na raiz do projeto.
 """
 from __future__ import annotations
 
