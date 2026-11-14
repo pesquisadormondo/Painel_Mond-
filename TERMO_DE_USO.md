@@ -1,4 +1,4 @@
-> **RASCUNHO para validação do encarregado de dados e da assessoria jurídica do Instituto.** Não use como versão final.
+> **RASCUNHO para validação do encarregado de dados e da assessoria jurídica do Instituto.**
 
 **Termo de uso de dados pseudonimizados — Instituto Mondó**
 
