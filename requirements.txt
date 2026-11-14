@@ -8,6 +8,3 @@ openpyxl>=3.1              # leitura da planilha .xlsx
 sqlalchemy>=2.0
 psycopg2-binary>=2.9
 
-# Somente para rodar os testes:
-# pytest>=8
-# pgserver>=0.1     # PostgreSQL embutido para os testes de banco (tests/test_postgres.py)
