@@ -81,7 +81,13 @@ footer { visibility: hidden; }
   border-left: 5px solid var(--urucum); padding: 0.05rem 0 0.05rem 0.7rem; margin: 1.2rem 0 .9rem;
 }
 [data-baseweb="tab-panel"] { padding-top: 1.1rem; }
-[data-testid="stSelectbox"], [data-testid="stMultiSelect"], [data-testid="stRadio"] { margin-bottom: .35rem; }
+/* o mesmo respiro para TODOS os campos (antes só as listas suspensas tinham, e blocos lado a lado ficavam com alturas diferentes) */
+[data-testid="stSelectbox"], [data-testid="stMultiSelect"], [data-testid="stRadio"], [data-testid="stTextInput"],
+[data-testid="stTextArea"], [data-testid="stNumberInput"], [data-testid="stDateInput"] { margin-bottom: .35rem; }
+/* blocos de formulário lado a lado (página Acessos): mesma altura mínima nos dois */
+.st-key-caixa_decidir [data-testid="stForm"], .st-key-caixa_convidar [data-testid="stForm"] {
+  min-height: 23rem; box-sizing: border-box;
+}
 .stApp [data-testid="stCaptionContainer"] { color: var(--suave); font-size: 1.02rem; }
 
 /* ---------- cabeçalho de página ---------- */
@@ -252,6 +258,12 @@ footer { visibility: hidden; }
   background: #F6F7F8 !important; border-color: #C6C9CC !important; color: #202124 !important;
 }
 .st-key-entrada_google button p, .st-key-btn_login button p { color: inherit !important; }
+/* botão "Continuar como visitante": mostarda da identidade, para não passar despercebido ao lado do botão branco do Google */
+.st-key-entrada_visitante button {
+  background: #E8AE4F !important; color: #3E1F1B !important; border: 1px solid #D99C3C !important; font-weight: 700;
+}
+.st-key-entrada_visitante button:hover { background: #D99C3C !important; border-color: #C78A2D !important; color: #3E1F1B !important; }
+.st-key-entrada_visitante button p { color: inherit !important; }
 .st-key-bloco_google { gap: .3rem !important; margin-bottom: .4rem; }
 .st-key-bloco_google [data-testid="stMarkdownContainer"] { margin: 0 !important; }
 .mondo-dica-botao { text-align: center; color: var(--suave); font-size: .86rem; margin: 0 !important; line-height: 1.3; }

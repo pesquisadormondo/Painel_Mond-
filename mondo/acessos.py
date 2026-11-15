@@ -205,9 +205,9 @@ def painel_admin(c) -> None:
     a, b = st.columns(2)
     with a:
         st.subheader("Aprovar, recusar ou revogar")
-        with st.form("form_decidir"):
+        with st.container(key="caixa_decidir"), st.form("form_decidir"):
             email = st.selectbox("Pessoa", df["email"].tolist() if len(df) else [], placeholder="Escolha")
-            acao = st.radio("Decisão", ["Aprovar", "Recusar / revogar"], horizontal=True)
+            acao = st.selectbox("Decisão", ["Aprovar", "Recusar / revogar"])     # mesma altura de um campo de texto
             validade = st.selectbox("Validade (ao aprovar)", list(VALIDADES))
             ok = st.form_submit_button("Salvar decisão", type="primary")
         if ok and email:
@@ -217,7 +217,7 @@ def painel_admin(c) -> None:
             st.success("Decisão registrada. Atualize a página para ver a lista nova.")
     with b:
         st.subheader("Convidar por e-mail")
-        with st.form("form_convidar"):
+        with st.container(key="caixa_convidar"), st.form("form_convidar"):
             em = st.text_input("E-mail (conta Google da pessoa)")
             nm = st.text_input("Nome")
             val = st.selectbox("Validade", list(VALIDADES), index=1, key="val_convite")
