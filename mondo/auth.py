@@ -138,9 +138,13 @@ def nivel_do_email(email: str, hoje: date | None = None, settings=None) -> tuple
 
 
 def _escolher_nivel_exibido(real: str) -> str:
-    opcoes = [n for n, o in LEVEL_ORDER.items() if o <= LEVEL_ORDER[real]]
-    if len(opcoes) == 1:
+    """Só administradores podem "ver como" um nível menor (para conferir o que cada um enxerga).
+
+    Pesquisadores ficam sempre no nível de pesquisador, sem a opção de trocar para o público.
+    """
+    if real != LEVEL_ADMIN:
         return real
+    opcoes = [n for n, o in LEVEL_ORDER.items() if o <= LEVEL_ORDER[real]]
     return st.sidebar.radio("Ver painéis como", opcoes, index=len(opcoes) - 1,
                             format_func=LEVEL_LABELS.get, key="ver_como",
                             help="Útil para conferir o que cada nível enxerga.")
@@ -161,12 +165,14 @@ def tela_entrada(settings) -> None:
     _, centro, _ = st.columns([1, 1.3, 1])
     with centro:
         if secret("auth.client_id"):
-            if _botao("Entrar com Google", type="primary", key="entrada_google"):
-                try:
-                    st.login()
-                except Exception:
-                    st.error("Login Google não configurado. Veja a seção 'Login com Google' do README.")
-            st.caption("Para pesquisadores e administradores autorizados.")
+            with st.container(key="bloco_google"):        # botão e texto juntos, sem o espaço padrão entre elementos
+                if _botao("Entrar com Google", type="primary", key="entrada_google"):
+                    try:
+                        st.login()
+                    except Exception:
+                        st.error("Login Google não configurado. Veja a seção 'Login com Google' do README.")
+                st.markdown('<p class="mondo-dica-botao">Para pesquisadores e administradores autorizados.</p>',
+                            unsafe_allow_html=True)
         else:
             st.info("O login Google ainda não está configurado neste ambiente.")
         if _botao("Continuar como visitante", key="entrada_visitante"):

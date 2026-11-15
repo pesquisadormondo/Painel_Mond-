@@ -13,7 +13,7 @@ from .exportacao import COLS_AVALIACOES, COLS_MORADORES, montar_pacote
 from .metrics import (INT_COLS, NAO_INFORMADO, TURNO_COLS, avaliacao_enriquecida, catalogo, contar, fato_participacao,
                       kpis, medias_questoes, morador_enriquecido, percentual, proporcoes)
 from .privacy import para_pesquisa
-from .tema import RODAPE_EM_TODAS_AS_PAGINAS, cabecalho, capa_pagina, kpis, rodape, vazio_amigavel
+from .tema import RODAPE_EM_TODAS_AS_PAGINAS, cabecalho, capa_pagina, grade_kpis, rodape, vazio_amigavel
 from .ui import Ctx, barras, linhas_tempo, rosca, tabela, vazio
 
 
@@ -33,7 +33,7 @@ def visao_geral(c: Ctx) -> None:
     if vazio(c.fato):
         return
     kp = kpis(c.frames, c.fato, c.mor)
-    kpis([("Famílias cadastradas", c.n(kp["familias"]), "casa"),
+    grade_kpis([("Famílias cadastradas", c.n(kp["familias"]), "casa"),
           ("Moradores ativos", c.n(kp["moradores_ativos"]), "pessoas"),
           ("Participantes únicos", c.n(kp["participantes"]), "pessoa"),
           ("Cobertura dos moradores ativos", _pct(kp["cobertura_pct"]), "alvo",
@@ -160,7 +160,7 @@ def doacoes(c: Ctx) -> None:
     if vazio(d):
         return
     dd, cc = d[d["doacao"]], d[d["cesta_basica"]]
-    kpis([("Participações com doação", c.n(len(dd)), "presente"),
+    grade_kpis([("Participações com doação", c.n(len(dd)), "presente"),
           ("Participações com cesta básica", c.n(len(cc)), "cesta"),
           ("Pessoas que receberam doação ou cesta",
            c.n(d[d["doacao"] | d["cesta_basica"]]["id_participante"].nunique()), "pessoas")], colunas=3)
@@ -182,7 +182,7 @@ def avaliacoes(c: Ctx) -> None:
         return
     nota = pd.to_numeric(av["nota_geral"], errors="coerce")
     q4 = pd.to_numeric(av["q04_recomendacao"], errors="coerce").dropna()
-    kpis([("Respostas", c.n(len(av)), "balao"),
+    grade_kpis([("Respostas", c.n(len(av)), "balao"),
           ("Nota geral média", "—" if nota.dropna().empty or (c.publico and nota.notna().sum() < c.k)
            else f"{nota.mean():.2f}".replace(".", ","), "estrela"),
           ("Recomendariam (notas 4 e 5)", "—" if q4.empty or (c.publico and len(q4) < c.k)
@@ -587,7 +587,7 @@ def feedback_admin(c: Ctx) -> None:
     if fb.empty:
         st.info("Nenhum feedback recebido ainda.")
         return
-    kpis([("Mensagens", len(fb), "balao"),
+    grade_kpis([("Mensagens", len(fb), "balao"),
           ("Erros ou números estranhos", int((fb["tipo"] == "Erro ou número estranho").sum()), "alerta")], colunas=2)
     st.dataframe(fb, hide_index=True)
     st.download_button("Baixar feedback (.csv)", fb.to_csv(index=False), file_name="feedback.csv", mime="text/csv")

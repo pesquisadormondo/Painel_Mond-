@@ -16,6 +16,7 @@ import pandas as pd
 import streamlit as st
 
 from . import audit, db
+from .config import ROOT
 
 VALIDADES = {"6 meses": 183, "1 ano": 365, "2 anos": 730, "Sem prazo": None}
 STATUS_ROTULO = {"pendente": "Pendente", "aprovado": "Aprovado", "revogado": "Revogado"}
@@ -106,25 +107,77 @@ def convidar(settings, email: str, nome: str, por: str, dias: int | None = None)
 
 
 # ------------------------------------------------------------------ telas
+TERMO_PADRAO = """**Termo de uso dos dados do Instituto Mondó**
+
+O arquivo TERMO_DE_USO.md não foi encontrado no projeto. Coloque-o na pasta principal para que o texto completo apareça aqui.
+
+Ao aceitar, você se compromete a usar os dados somente para a finalidade informada, a não tentar reidentificar
+pessoas, a não compartilhar os arquivos recebidos e a descartá-los ao fim do prazo. Dados pseudonimizados
+continuam sendo dados pessoais (LGPD, art. 13, § 4º). Os acessos são registrados."""
+
+
+def _texto_termo() -> str:
+    arq = ROOT / "TERMO_DE_USO.md"
+    try:
+        return arq.read_text(encoding="utf-8")
+    except OSError:
+        return TERMO_PADRAO
+
+
+def _abrir_termo(chave: str) -> None:
+    """Pop-up com o termo de uso. O botão de aceite fica no FIM do texto: é preciso rolar até embaixo para aceitar."""
+    dialogo = getattr(st, "dialog", None) or getattr(st, "experimental_dialog", None)
+    if dialogo is None:       # versão antiga do Streamlit, sem pop-up: mostra o termo no próprio menu
+        with st.sidebar.container(height=320):
+            st.markdown(_texto_termo())
+            if st.button("Li e aceito o termo de uso", type="primary", key=f"aceite_{chave}"):
+                st.session_state[chave] = True
+                st.rerun()
+        return
+    try:
+        decorador = dialogo("Termo de uso dos dados", width="large")
+    except TypeError:
+        decorador = dialogo("Termo de uso dos dados")
+
+    @decorador
+    def _mostrar():
+        st.caption("Leia o termo até o fim para poder aceitar.")
+        with st.container(height=430):
+            st.markdown(_texto_termo())
+            st.divider()
+            if st.button("Li e aceito o termo de uso", type="primary", key=f"aceite_{chave}"):
+                st.session_state[chave] = True
+                st.rerun()
+    _mostrar()
+
+
 def formulario_solicitacao(settings, email: str) -> None:
-    """Barra lateral: pedido de acesso de pesquisador (para quem entrou com Google mas não tem autorização)."""
+    """Barra lateral: pedido de acesso de pesquisador (para quem entrou com Google mas não tem autorização).
+
+    Passo 1: abrir e aceitar o termo de uso (pop-up). Passo 2: preencher nome, instituição e finalidade.
+    """
     try:
         reg = buscar(settings, email)
     except Exception:
         return
     if reg and str(reg.get("status")).lower() in ("pendente", "revogado"):
         return  # já pediu (aviso exibido pelo auth) ou foi revogado (precisa falar com o administrador)
+    chave = f"termo_aceito_{email}"
     with st.sidebar.expander("Solicitar acesso de pesquisador"):
+        if not st.session_state.get(chave):
+            st.caption("Antes de pedir acesso, leia e aceite o termo de uso dos dados.")
+            if st.button("Ler e aceitar o termo de uso", key=f"abrir_termo_{email}"):
+                _abrir_termo(chave)
+            return
+        st.caption("✔ Termo de uso aceito.")
         with st.form("form_solicitacao", clear_on_submit=False):
             nome = st.text_input("Nome completo", max_chars=200)
             inst = st.text_input("Instituição", max_chars=200)
             fin = st.text_area("Para que você vai usar os dados?", max_chars=1000)
-            termo = st.checkbox("Li e aceito o termo de uso (LGPD): uso apenas para a finalidade informada, "
-                                "sem tentar reidentificar pessoas e sem compartilhar os arquivos.")
             enviado = st.form_submit_button("Enviar solicitação")
         if enviado:
-            if not (nome.strip() and fin.strip() and termo):
-                st.warning("Preencha nome e finalidade e aceite o termo.")
+            if not (nome.strip() and fin.strip()):
+                st.warning("Preencha nome e finalidade.")
             else:
                 try:
                     solicitar(settings, email, nome, inst, fin)
