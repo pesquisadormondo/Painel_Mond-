@@ -13,7 +13,7 @@ from .exportacao import COLS_AVALIACOES, COLS_MORADORES, montar_pacote
 from .metrics import (INT_COLS, NAO_INFORMADO, TURNO_COLS, avaliacao_enriquecida, catalogo, contar, fato_participacao,
                       kpis, medias_questoes, morador_enriquecido, percentual, proporcoes)
 from .privacy import para_pesquisa
-from .tema import RODAPE_EM_TODAS_AS_PAGINAS, cabecalho, capa_pagina, kpi, rodape, vazio_amigavel
+from .tema import RODAPE_EM_TODAS_AS_PAGINAS, cabecalho, capa_pagina, kpis, rodape, vazio_amigavel
 from .ui import Ctx, barras, linhas_tempo, rosca, tabela, vazio
 
 
@@ -33,16 +33,14 @@ def visao_geral(c: Ctx) -> None:
     if vazio(c.fato):
         return
     kp = kpis(c.frames, c.fato, c.mor)
-    k1, k2, k3, k4 = st.columns(4)
-    kpi("Famílias cadastradas", c.n(kp["familias"]), "casa", onde=k1)
-    kpi("Moradores ativos", c.n(kp["moradores_ativos"]), "pessoas", onde=k2)
-    kpi("Participantes únicos", c.n(kp["participantes"]), "pessoa", onde=k3)
-    kpi("Cobertura dos moradores ativos", _pct(kp["cobertura_pct"]), "alvo", onde=k4,
-        ajuda="Moradores ativos com ao menos uma participação no período filtrado.")
-    k5, k6, k7, _ = st.columns(4)
-    kpi("Participações", c.n(kp["participacoes"]), "prancheta", onde=k5)
-    kpi("Ofertas realizadas", c.n(kp["ofertas"]), "calendario", onde=k6)
-    kpi("Atividades diferentes", c.n(kp["atividades"]), "atividade", onde=k7)
+    kpis([("Famílias cadastradas", c.n(kp["familias"]), "casa"),
+          ("Moradores ativos", c.n(kp["moradores_ativos"]), "pessoas"),
+          ("Participantes únicos", c.n(kp["participantes"]), "pessoa"),
+          ("Cobertura dos moradores ativos", _pct(kp["cobertura_pct"]), "alvo",
+           "Moradores ativos com ao menos uma participação no período filtrado."),
+          ("Participações", c.n(kp["participacoes"]), "prancheta"),
+          ("Ofertas realizadas", c.n(kp["ofertas"]), "calendario"),
+          ("Atividades diferentes", c.n(kp["atividades"]), "atividade")])
 
     linhas_tempo(c, contar(c.fato, ["mes", "dimensao"]), "mes", cor="dimensao", titulo="Participações por mês e dimensão")
     barras(c, contar(c.fato, "dimensao", distinto="id_participante"), "dimensao", horizontal=True,
@@ -162,10 +160,10 @@ def doacoes(c: Ctx) -> None:
     if vazio(d):
         return
     dd, cc = d[d["doacao"]], d[d["cesta_basica"]]
-    k1, k2, k3 = st.columns(3)
-    kpi("Participações com doação", c.n(len(dd)), "presente", onde=k1)
-    kpi("Participações com cesta básica", c.n(len(cc)), "cesta", onde=k2)
-    kpi("Pessoas que receberam doação ou cesta", c.n(d[d["doacao"] | d["cesta_basica"]]["id_participante"].nunique()), "pessoas", onde=k3)
+    kpis([("Participações com doação", c.n(len(dd)), "presente"),
+          ("Participações com cesta básica", c.n(len(cc)), "cesta"),
+          ("Pessoas que receberam doação ou cesta",
+           c.n(d[d["doacao"] | d["cesta_basica"]]["id_participante"].nunique()), "pessoas")], colunas=3)
     itens = contar(dd.assign(item_doacao=dd["item_doacao"].replace(NAO_INFORMADO, "Doação sem item informado")), "item_doacao")
     barras(c, itens, "item_doacao", horizontal=True, titulo="Doações por item")
     cestas = contar(cc, "ano").assign(ano=lambda t: t["ano"].astype(int).astype(str))
@@ -184,12 +182,11 @@ def avaliacoes(c: Ctx) -> None:
         return
     nota = pd.to_numeric(av["nota_geral"], errors="coerce")
     q4 = pd.to_numeric(av["q04_recomendacao"], errors="coerce").dropna()
-    k1, k2, k3 = st.columns(3)
-    kpi("Respostas", c.n(len(av)), "balao", onde=k1)
-    kpi("Nota geral média", "—" if nota.dropna().empty or (c.publico and nota.notna().sum() < c.k)
-        else f"{nota.mean():.2f}".replace(".", ","), "estrela", onde=k2)
-    kpi("Recomendariam (notas 4 e 5)", "—" if q4.empty or (c.publico and len(q4) < c.k)
-        else _pct(percentual(int((q4 >= 4).sum()), len(q4))), "joinha", onde=k3)
+    kpis([("Respostas", c.n(len(av)), "balao"),
+          ("Nota geral média", "—" if nota.dropna().empty or (c.publico and nota.notna().sum() < c.k)
+           else f"{nota.mean():.2f}".replace(".", ","), "estrela"),
+          ("Recomendariam (notas 4 e 5)", "—" if q4.empty or (c.publico and len(q4) < c.k)
+           else _pct(percentual(int((q4 >= 4).sum()), len(q4))), "joinha")], colunas=3)
 
     m = medias_questoes(av)
     if c.publico:
@@ -590,9 +587,8 @@ def feedback_admin(c: Ctx) -> None:
     if fb.empty:
         st.info("Nenhum feedback recebido ainda.")
         return
-    a, b = st.columns(2)
-    kpi("Mensagens", len(fb), "balao", onde=a)
-    kpi("Erros ou números estranhos", int((fb["tipo"] == "Erro ou número estranho").sum()), "alerta", onde=b)
+    kpis([("Mensagens", len(fb), "balao"),
+          ("Erros ou números estranhos", int((fb["tipo"] == "Erro ou número estranho").sum()), "alerta")], colunas=2)
     st.dataframe(fb, hide_index=True)
     st.download_button("Baixar feedback (.csv)", fb.to_csv(index=False), file_name="feedback.csv", mime="text/csv")
 

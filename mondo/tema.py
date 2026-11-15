@@ -1,4 +1,15 @@
 """Identidade visual do painel, alinhada ao BI "O Marajó em Dados" (Observatório Mondó).
+
+Elementos do BI reproduzidos aqui:
+- fundo de papel claro, com textura leve;
+- barra de navegação marrom-cacau com a página ativa em mostarda (aqui, a barra lateral);
+- cartões brancos de cantos arredondados, com uma barrinha vermelha antes do título;
+- indicadores (st.metric) em cartões, número grande em marrom-escuro;
+- gráficos em tons de marrom (barras de uma série: mais escuro = maior valor) e paleta terrosa para séries.
+
+Uso: `cabecalho("Título", "subtítulo")` no começo de cada página (já chama `aplicar()`), e
+`cartao("Título do gráfico")` para envolver gráficos. As cores do tema do Streamlit ficam em .streamlit/config.toml.
+Para o logotipo, salve o arquivo em assets/logo_observatorio.png (ou .svg) na raiz do projeto.
 """
 from __future__ import annotations
 
@@ -185,7 +196,10 @@ footer { visibility: hidden; }
   display: flex; align-items: flex-end; justify-content: center;   /* rótulos de 1 ou 2 linhas: número sempre na mesma altura */
 }
 .mondo-kpi-valor { font-family: var(--titulo); font-weight: 600; color: var(--ebano); font-size: 1.95rem; line-height: 1.05; margin-top: .05rem; }
-[data-testid="stHorizontalBlock"]:has(.mondo-kpi) { gap: .7rem; }
+/* grade dos indicadores: 4 por linha (ou --n), 2 por linha em telas estreitas; não depende das colunas do Streamlit */
+.mondo-kpis { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: .7rem; margin-bottom: .8rem; }
+.mondo-kpis .mondo-kpi { margin-bottom: 0; }
+@media (max-width: 900px) { .mondo-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* ---------- tela vazia ---------- */
 .mondo-vazio {
@@ -208,20 +222,15 @@ footer { visibility: hidden; }
 
 /* ---------- celular ---------- */
 @media (max-width: 640px) {
-  .block-container { padding: 1rem .8rem 3.4rem !important; }
+  .block-container { padding-left: .8rem !important; padding-right: .8rem !important; padding-bottom: 3.4rem !important; }
   .stApp h1 { font-size: 2rem; }
   .stApp h3 { font-size: 1.15rem; margin: 1rem 0 .7rem; }
   .mondo-topo { gap: .7rem; flex-wrap: wrap; }
   .mondo-logo img { height: 34px; }
   .mondo-logo-texto strong { font-size: 1.5rem; }
   .mondo-kicker { font-size: .8rem; }
-  /* indicadores: 2 por linha, em vez de um embaixo do outro */
-  [data-testid="stHorizontalBlock"]:has(.mondo-kpi) { flex-wrap: wrap !important; gap: .5rem !important; }
-  [data-testid="stHorizontalBlock"]:has(.mondo-kpi) > [data-testid="stColumn"],
-  [data-testid="stHorizontalBlock"]:has(.mondo-kpi) > [data-testid="column"] {
-    flex: 0 0 calc(50% - .25rem) !important; min-width: calc(50% - .25rem) !important; width: calc(50% - .25rem) !important;
-  }
-  .mondo-kpi { height: auto; min-height: 4.4rem; padding: .45rem .6rem; gap: .5rem; margin-bottom: .4rem; }
+  .mondo-kpis { gap: .5rem; }
+  .mondo-kpi { height: auto; min-height: 4.4rem; padding: .45rem .6rem; gap: .5rem; }
   .mondo-kpi-icone { flex-basis: 2rem; width: 2rem; height: 2rem; border-radius: 8px; }
   .mondo-kpi-icone img { width: 1.15rem; height: 1.15rem; }
   .mondo-kpi-rotulo { font-size: .72rem; min-height: 0; }
@@ -407,17 +416,27 @@ def _svg_uri(corpo: str, cor: str = "#583A37", traco: float = 1.8) -> str:
     return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode()
 
 
-def kpi(rotulo: str, valor, icone: str = "grafico", ajuda: str | None = None, onde=None) -> None:
-    """Indicador em cartão: quadradinho creme com ícone + rótulo + número grande (como nos cartões do BI).
-
-    `onde`: coluna (k1, k2...) em que desenhar; sem ela, desenha onde estiver o cursor da página.
-    """
+def _kpi_html(rotulo, valor, icone: str = "grafico", ajuda: str | None = None) -> str:
     uri = _svg_uri(_ICONES_SVG.get(icone, _ICONES_SVG["grafico"]))
     dica = f' title="{html.escape(ajuda, quote=True)}"' if ajuda else ""
-    (onde or st).markdown(
-        f'<div class="mondo-kpi"{dica}><div class="mondo-kpi-icone"><img alt="" src="{uri}"></div>'
-        f'<div class="mondo-kpi-texto"><div class="mondo-kpi-rotulo">{html.escape(str(rotulo))}</div>'
-        f'<div class="mondo-kpi-valor">{html.escape(str(valor))}</div></div></div>', unsafe_allow_html=True)
+    return (f'<div class="mondo-kpi"{dica}><div class="mondo-kpi-icone"><img alt="" src="{uri}"></div>'
+            f'<div class="mondo-kpi-texto"><div class="mondo-kpi-rotulo">{html.escape(str(rotulo))}</div>'
+            f'<div class="mondo-kpi-valor">{html.escape(str(valor))}</div></div></div>')
+
+
+def kpis(itens, colunas: int = 4) -> None:
+    """Fileira de indicadores em cartão (quadradinho creme com ícone + rótulo + número grande).
+
+    `itens`: lista de (rótulo, valor, ícone) ou (rótulo, valor, ícone, texto de ajuda). `colunas`: quantos por linha em
+    telas largas; em telas estreitas a grade passa sozinha para 2 por linha.
+    """
+    cartoes = "".join(_kpi_html(*item) for item in itens)
+    st.markdown(f'<div class="mondo-kpis" style="--n:{int(colunas)}">{cartoes}</div>', unsafe_allow_html=True)
+
+
+def kpi(rotulo: str, valor, icone: str = "grafico", ajuda: str | None = None, onde=None) -> None:
+    """Um indicador avulso (preferir `kpis`, que organiza a fileira inteira)."""
+    (onde or st).markdown(_kpi_html(rotulo, valor, icone, ajuda), unsafe_allow_html=True)
 
 
 # ------------------------------------------------------------------ telas vazias, carregamento, capa
