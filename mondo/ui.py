@@ -98,6 +98,27 @@ def vazio(df: pd.DataFrame) -> bool:
     return False
 
 
+def mapa_cores(c: Ctx, coluna: str | None, valores=None) -> dict | None:
+    """Cor FIXA por categoria: a mesma dimensão (ou sexo, zona...) tem sempre a mesma cor em todos os gráficos.
+
+    As cores seguem a ordem alfabética de TODOS os valores existentes (não dos que sobraram no filtro), então não
+    mudam quando o filtro muda. Com mais categorias que cores da paleta, devolve None (cada gráfico usa a sua ordem).
+    """
+    if not coluna:
+        return None
+    nomes: set[str] = set()
+    for base in (getattr(c, "fato_total", None), getattr(c, "mor", None)):
+        if base is not None and coluna in base.columns:
+            nomes |= {str(v) for v in base[coluna].dropna().unique()}
+            break
+    if valores is not None:
+        nomes |= {str(v) for v in valores}
+    ordenados = sorted(nomes)
+    if not ordenados or len(ordenados) > len(PALETA):
+        return None
+    return {n: PALETA[i] for i, n in enumerate(ordenados)}
+
+
 def _eixo_valor(fig, horizontal: bool, rotulo: str) -> None:
     if rotulo:
         (fig.update_xaxes if horizontal else fig.update_yaxes)(title_text=rotulo)
@@ -125,7 +146,7 @@ def barras(c: Ctx, df: pd.DataFrame, x: str, y: str = "valor", cor: str | None =
                  category_orders={k: v for k, v in ORDENS.items() if k in (x, cor)}, labels={y: rotulo_y or y})
     if cor:
         fig = px.bar(plot, color=cor, barmode="stack" if empilhar else "group",
-                     color_discrete_sequence=PALETA, **comum)
+                     color_discrete_sequence=PALETA, color_discrete_map=mapa_cores(c, cor, plot[cor]), **comum)
     else:
         fig = px.bar(plot, color=y, color_continuous_scale=tema.ESCALA_MARROM,
                      range_color=[0, float(plot[y].max()) or 1.0], **comum)
@@ -148,7 +169,8 @@ def rosca(c: Ctx, df: pd.DataFrame, nomes: str, valor: str = "valor", titulo: st
         c.aviso_supressao(d)
         tema.vazio_amigavel("Valores pequenos demais para divulgar", f"Para proteger a privacidade, números abaixo de {c.k} não são mostrados neste gráfico.")
         return
-    fig = px.pie(plot, names=nomes, values=valor, hole=0.55, color_discrete_sequence=PALETA)
+    fig = px.pie(plot, names=nomes, values=valor, hole=0.55, color=nomes, color_discrete_sequence=PALETA,
+                 color_discrete_map=mapa_cores(c, nomes, plot[nomes]))
     fig.update_traces(marker=dict(line=dict(color="#FFFFFF", width=2)), textinfo="percent")
     tema.estilizar(fig)
     with tema.cartao(titulo):
@@ -165,7 +187,8 @@ def linhas_tempo(c: Ctx, df: pd.DataFrame, x: str, y: str = "valor", cor: str | 
         c.aviso_supressao(d)
         tema.vazio_amigavel("Valores pequenos demais para divulgar", f"Para proteger a privacidade, números abaixo de {c.k} não são mostrados neste gráfico.")
         return
-    fig = px.bar(plot, x=x, y=y, color=cor, color_discrete_sequence=PALETA, barmode="stack")
+    fig = px.bar(plot, x=x, y=y, color=cor, color_discrete_sequence=PALETA, barmode="stack",
+                 color_discrete_map=mapa_cores(c, cor, plot[cor]) if cor else None)
     tema.estilizar(fig, legenda_embaixo=bool(cor))
     fig.update_layout(bargap=0.12)
     with tema.cartao(titulo):

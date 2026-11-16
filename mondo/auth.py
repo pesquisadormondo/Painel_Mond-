@@ -183,6 +183,8 @@ def tela_entrada(settings) -> None:
 
 def resolver_acesso(settings, mascarado: bool = False) -> Acesso:
     """`mascarado`: True quando os dados carregados têm identificações fictícias (ambiente de teste)."""
+    from . import tema
+    tema.aplicar()        # o quanto antes: sem isso, o menu pisca com os emojis originais ao trocar de página
     if settings.dev_mode:
         st.sidebar.warning("Modo de desenvolvimento: login desativado.")
         nivel = st.sidebar.radio("Nível (dev)", list(LEVEL_LABELS), format_func=LEVEL_LABELS.get, key="dev_nivel")

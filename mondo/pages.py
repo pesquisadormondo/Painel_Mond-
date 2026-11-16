@@ -33,14 +33,14 @@ def visao_geral(c: Ctx) -> None:
     if vazio(c.fato):
         return
     kp = kpis(c.frames, c.fato, c.mor)
-    grade_kpis([("Famílias cadastradas", c.n(kp["familias"]), "casa"),
-          ("Moradores ativos", c.n(kp["moradores_ativos"]), "pessoas"),
-          ("Participantes únicos", c.n(kp["participantes"]), "pessoa"),
+    grade_kpis([("Famílias cadastradas", c.n(kp["familias"]), "casa", "Famílias com cadastro no Instituto. Não muda com os filtros."),
+          ("Moradores ativos", c.n(kp["moradores_ativos"]), "pessoas", "Moradores do cadastro com situação “Ativa”. Não muda com os filtros."),
+          ("Participantes únicos", c.n(kp["participantes"]), "pessoa", "Pessoas diferentes que participaram de ao menos uma oferta (inclui quem não está no cadastro)."),
           ("Cobertura dos moradores ativos", _pct(kp["cobertura_pct"]), "alvo",
            "Moradores ativos com ao menos uma participação no período filtrado."),
-          ("Participações", c.n(kp["participacoes"]), "prancheta"),
-          ("Ofertas realizadas", c.n(kp["ofertas"]), "calendario"),
-          ("Atividades diferentes", c.n(kp["atividades"]), "atividade")])
+          ("Participações", c.n(kp["participacoes"]), "prancheta", "Cada vez que uma pessoa participa de uma oferta. A mesma pessoa pode ter várias."),
+          ("Ofertas realizadas", c.n(kp["ofertas"]), "calendario", "Turmas, edições ou eventos de uma atividade, com datas de início e fim."),
+          ("Atividades diferentes", c.n(kp["atividades"]), "atividade", "Quantidade de atividades distintas (pelo nome) no período filtrado.")])
 
     linhas_tempo(c, contar(c.fato, ["mes", "dimensao"]), "mes", cor="dimensao", titulo="Participações por mês e dimensão")
     barras(c, contar(c.fato, "dimensao", distinto="id_participante"), "dimensao", horizontal=True,
@@ -160,10 +160,11 @@ def doacoes(c: Ctx) -> None:
     if vazio(d):
         return
     dd, cc = d[d["doacao"]], d[d["cesta_basica"]]
-    grade_kpis([("Participações com doação", c.n(len(dd)), "presente"),
-          ("Participações com cesta básica", c.n(len(cc)), "cesta"),
+    grade_kpis([("Participações com doação", c.n(len(dd)), "presente", "Participações em que houve entrega de algum item (óculos, kits etc.)."),
+          ("Participações com cesta básica", c.n(len(cc)), "cesta", "Participações em que a pessoa recebeu cesta básica."),
           ("Pessoas que receberam doação ou cesta",
-           c.n(d[d["doacao"] | d["cesta_basica"]]["id_participante"].nunique()), "pessoas")], colunas=3)
+           c.n(d[d["doacao"] | d["cesta_basica"]]["id_participante"].nunique()), "pessoas",
+           "Pessoas diferentes: quem recebeu mais de uma vez conta uma só vez.")], colunas=3)
     itens = contar(dd.assign(item_doacao=dd["item_doacao"].replace(NAO_INFORMADO, "Doação sem item informado")), "item_doacao")
     barras(c, itens, "item_doacao", horizontal=True, titulo="Doações por item")
     cestas = contar(cc, "ano").assign(ano=lambda t: t["ano"].astype(int).astype(str))
@@ -182,11 +183,13 @@ def avaliacoes(c: Ctx) -> None:
         return
     nota = pd.to_numeric(av["nota_geral"], errors="coerce")
     q4 = pd.to_numeric(av["q04_recomendacao"], errors="coerce").dropna()
-    grade_kpis([("Respostas", c.n(len(av)), "balao"),
+    grade_kpis([("Respostas", c.n(len(av)), "balao", "Formulários de avaliação preenchidos pelos participantes."),
           ("Nota geral média", "—" if nota.dropna().empty or (c.publico and nota.notna().sum() < c.k)
-           else f"{nota.mean():.2f}".replace(".", ","), "estrela"),
+           else f"{nota.mean():.2f}".replace(".", ","), "estrela",
+           "Média da nota geral dada pelos participantes, em escala de 1 a 5."),
           ("Recomendariam (notas 4 e 5)", "—" if q4.empty or (c.publico and len(q4) < c.k)
-           else _pct(percentual(int((q4 >= 4).sum()), len(q4))), "joinha")], colunas=3)
+           else _pct(percentual(int((q4 >= 4).sum()), len(q4))), "joinha",
+           "Percentual de respostas com nota 4 ou 5 na pergunta “Recomendaria?”.")], colunas=3)
 
     m = medias_questoes(av)
     if c.publico:

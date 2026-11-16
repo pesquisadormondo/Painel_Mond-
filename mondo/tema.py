@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import base64
 import html
+import re
+import sys
 from pathlib import Path
 from contextlib import contextmanager
 
@@ -202,6 +204,22 @@ footer { visibility: hidden; }
   display: flex; align-items: flex-end; justify-content: center;   /* rótulos de 1 ou 2 linhas: número sempre na mesma altura */
 }
 .mondo-kpi-valor { font-family: var(--titulo); font-weight: 600; color: var(--ebano); font-size: 1.95rem; line-height: 1.05; margin-top: .05rem; }
+/* dica "?" dos indicadores */
+.mondo-kpi { position: relative; }
+.mondo-ajuda { position: static; outline: none; }
+.mondo-ajuda-bola {
+  position: absolute; top: .35rem; right: .45rem; z-index: 21; width: 1.15rem; height: 1.15rem; border-radius: 50%;
+  border: 1px solid #CDB7A3; background: #FFFFFF; color: #8A6A5C; font-size: .68rem; font-weight: 700; line-height: 1;
+  display: flex; align-items: center; justify-content: center; cursor: help;
+}
+.mondo-ajuda-texto {
+  display: none; position: absolute; left: 0; right: 0; top: 0; min-height: 100%; box-sizing: border-box; z-index: 20;
+  background: #3E1F1B; color: #FAEBD7; border-radius: 14px; padding: .55rem 2rem .55rem .9rem; font-size: .78rem;
+  line-height: 1.3; font-weight: 400; text-align: left; align-items: center;
+}
+.mondo-ajuda:hover .mondo-ajuda-texto, .mondo-ajuda:focus .mondo-ajuda-texto, .mondo-ajuda:focus-within .mondo-ajuda-texto { display: flex; }
+@media (max-width: 640px) { .mondo-ajuda-texto { font-size: .7rem; padding: .4rem 1.6rem .4rem .6rem; } }
+
 /* grade dos indicadores: 4 por linha (ou --n), 2 por linha em telas estreitas; não depende das colunas do Streamlit */
 .mondo-kpis { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: .7rem; margin-bottom: .8rem; }
 .mondo-kpis .mondo-kpi { margin-bottom: 0; }
@@ -331,21 +349,50 @@ def _css_icones() -> str:
     return "<style>" + "\n".join(regras) + "</style>" if len(regras) > 1 else ""
 
 
-def aplicar(logo: bool = True) -> None:
-    """Injeta o CSS do tema. Pode ser chamada em toda execução (só adiciona um bloco de estilo).
+FONTES_LOCAIS = ROOT / "static" / "fontes.css"     # gerado por scripts/baixar_fontes.py (fontes hospedadas no projeto)
 
-    `logo=False` não coloca o logotipo no topo do menu lateral (usado na tela de senha, que não tem menu)."""
-    st.markdown(CSS, unsafe_allow_html=True)
+
+@st.cache_data(show_spinner=False)
+def _css_final() -> str:
+    """CSS completo do tema (um só bloco). Usa as fontes do projeto, se existirem, em vez do Google Fonts."""
+    css = CSS
+    if FONTES_LOCAIS.exists():
+        local = FONTES_LOCAIS.read_text(encoding="utf-8")
+        css = re.sub(r"@import url\('https://fonts\.googleapis\.com[^\n]*\n", lambda _m: local + "\n", css, count=1)
+    partes = [css]
+    for f in (_css_icones, _css_feedback, _css_google):
+        try:
+            partes.append(f())
+        except Exception:
+            pass  # ícones são enfeite: nunca podem derrubar a página
+    return "\n".join(p for p in partes if p)
+
+
+def _primeira_vez_nesta_execucao() -> bool:
+    """O CSS só precisa ser enviado uma vez por execução do script (evita blocos repetidos no topo da página)."""
     try:
-        css_icones = _css_icones()
-        if css_icones:
-            st.markdown(css_icones, unsafe_allow_html=True)
-        css_fb = _css_feedback()
-        if css_fb:
-            st.markdown(css_fb, unsafe_allow_html=True)
-        st.markdown(_css_google(), unsafe_allow_html=True)
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+        ctx = get_script_run_ctx()
+        rid = getattr(ctx, "script_run_id", None) if ctx else None
     except Exception:
-        pass  # ícones são enfeite: nunca podem derrubar a página
+        return True
+    if rid is None:
+        return True
+    if st.session_state.get("_mondo_css_run") == rid:
+        return False
+    st.session_state["_mondo_css_run"] = rid
+    return True
+
+
+def aplicar(logo: bool = True) -> None:
+    """Injeta o CSS do tema. Pode ser chamada várias vezes na mesma execução (só o primeiro envio vale).
+
+    Chame o quanto antes (o `auth.resolver_acesso` já chama no começo): se o CSS só chegar quando a página começa a
+    ser desenhada, o menu aparece por um instante com os emojis originais, antes de trocá-los pelas imagens.
+    `logo=False` não coloca o logotipo no topo do menu lateral (usado na tela de senha, que não tem menu).
+    """
+    if _primeira_vez_nesta_execucao():
+        st.markdown(_css_final(), unsafe_allow_html=True)
     if logo and LOGO_MENU.exists():
         try:
             st.logo(str(LOGO_MENU), size="large")   # fica no topo do menu lateral
@@ -364,10 +411,32 @@ def _logo_html() -> str:
     return '<div class="mondo-logo-texto"><small>OBSERVATÓRIO</small><strong>MONDÓ</strong></div>'
 
 
+def _arquivo_icone(nome: str):
+    for ext in (".png", ".webp", ".svg", ".jpg"):
+        arq = ICONES_DIR / f"{nome}{ext}"
+        if arq.exists():
+            return arq
+    return None
+
+
+def _css_icone_titulo(nome: str) -> str:
+    """Quadradinho marrom com o ícone do menu ao lado do título da página (arquivo assets/icones_menu/<página>.png)."""
+    arq = _arquivo_icone(nome)
+    if arq is None:
+        return ""
+    mime = {".png": "image/png", ".webp": "image/webp", ".svg": "image/svg+xml", ".jpg": "image/jpeg"}[arq.suffix]
+    uri = f"data:{mime};base64,{_b64(str(arq))}"
+    return ('<style>.stApp h1::before { content: ""; display: inline-block; width: 2.6rem; height: 2.6rem; margin-right: .7rem; '
+            f'vertical-align: -.4rem; border-radius: 12px; background: url("{uri}") center / 64% no-repeat, #583A37; }}'
+            '@media (max-width: 640px) { .stApp h1::before { width: 1.9rem; height: 1.9rem; margin-right: .5rem; vertical-align: -.25rem; } }'
+            '</style>')
+
+
 def cabecalho(titulo: str, subtitulo: str | None = None) -> None:
     """Topo da página: logotipo | linha pequena, título (st.title) e subtítulo (st.caption)."""
     aplicar()
-    st.markdown(f'<div class="mondo-topo">{_logo_html()}<div class="mondo-divisor"></div>'
+    nome_pagina = sys._getframe(1).f_code.co_name        # nome da função da página (ex.: "visao_geral")
+    st.markdown(_css_icone_titulo(nome_pagina) + f'<div class="mondo-topo">{_logo_html()}<div class="mondo-divisor"></div>'
                 f'<div class="mondo-kicker">{html.escape(KICKER)}</div></div>', unsafe_allow_html=True)
     st.title(titulo)
     if subtitulo:
@@ -460,10 +529,13 @@ def _svg_uri(corpo: str, cor: str = "#583A37", traco: float = 1.8) -> str:
 
 def _kpi_html(rotulo, valor, icone: str = "grafico", ajuda: str | None = None) -> str:
     uri = _svg_uri(_ICONES_SVG.get(icone, _ICONES_SVG["grafico"]))
-    dica = f' title="{html.escape(ajuda, quote=True)}"' if ajuda else ""
-    return (f'<div class="mondo-kpi"{dica}><div class="mondo-kpi-icone"><img alt="" src="{uri}"></div>'
+    dica = ""
+    if ajuda:   # "?" no canto: ao passar o mouse (ou tocar), o cartão mostra a explicação
+        dica = (f'<span class="mondo-ajuda" tabindex="0" role="note" aria-label="{html.escape(ajuda, quote=True)}">'
+                f'<span class="mondo-ajuda-bola">?</span><span class="mondo-ajuda-texto">{html.escape(ajuda)}</span></span>')
+    return (f'<div class="mondo-kpi"><div class="mondo-kpi-icone"><img alt="" src="{uri}"></div>'
             f'<div class="mondo-kpi-texto"><div class="mondo-kpi-rotulo">{html.escape(str(rotulo))}</div>'
-            f'<div class="mondo-kpi-valor">{html.escape(str(valor))}</div></div></div>')
+            f'<div class="mondo-kpi-valor">{html.escape(str(valor))}</div></div>{dica}</div>')
 
 
 def grade_kpis(itens, colunas: int = 4) -> None:
